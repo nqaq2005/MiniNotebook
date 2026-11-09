@@ -1,0 +1,29 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environment variables
+.env
+
+# Data & storage artifacts
+data/raw_pdfs/*.pdf
+data/parsed_md/*.md
+data/vector_db/*
+data/models_cache/*
+data/citation_graph/*.json
+data/citation_graph/*.gpickle
+!data/**/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
