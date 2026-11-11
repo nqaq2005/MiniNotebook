@@ -73,36 +73,8 @@ Hệ thống hỗ trợ toàn diện các nền tảng LLM hàng đầu với kh
 
 ## 🏗️ Kiến trúc Hệ thống
 
-```mermaid
-flowchart TD
-    subgraph INGESTION["1. Document Ingestion"]
-        A[PDF Upload / ArXiv Fetcher] --> B[PyMuPDF4LLM + RapidOCR]
-        B --> C[SectionAwareChunker]
-        C -->|Sections & Meta| D[Structured Chunks]
-    end
+<img width="2400" height="1792" alt="architecture" src="https://github.com/user-attachments/assets/f45b2295-bbe4-4bd6-b757-0892eb67f044" />
 
-    subgraph STORAGE["2. Hybrid Storage"]
-        D -->|Dense Embeddings BGE-Small| E[(Qdrant Vector DB)]
-        D -->|Academic Tokens| F[(BM25 Lexical Index)]
-        D -->|Citation Links| G[(Citation Graph NetworkX)]
-    end
-
-    subgraph AGENT["3. Agentic RAG Pipeline"]
-        H[User Query] --> I[decompose_query]
-        I --> J[retrieve_evidence: RRF Fusion]
-        E -.-> J
-        F -.-> J
-        G -.-> J
-        J --> K[Cross-Encoder ONNX Reranker]
-        K --> L[synthesize_answer: LLM Streaming]
-        L --> M[verify_grounding: Citation Guard]
-    end
-
-    subgraph UI["4. Presentation & Workspace"]
-        M --> N[Chat Stream with Citations]
-        N -->|1-Click Insert| O[Markdown Workspace Split/Overlay]
-    end
-```
 
 ---
 
