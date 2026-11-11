@@ -135,14 +135,24 @@ class HybridVectorStore:
 
         if in_memory:
             self.client = QdrantClient(":memory:")
-        elif settings.qdrant_url.strip():
-            self.client = QdrantClient(url=settings.qdrant_url.strip())
         else:
-            try:
-                self.client = QdrantClient(path=str(settings.vector_db_dir))
-            except RuntimeError:
-                # Fallback to in-memory client if local storage is locked by a running uvicorn server
-                self.client = QdrantClient(":memory:")
+            self.client = None
+            if settings.qdrant_url.strip():
+                try:
+                    c = QdrantClient(url=settings.qdrant_url.strip(), timeout=3.0)
+                    c.collection_exists(self.collection_name)
+                    self.client = c
+                except Exception as e:
+                    print(f"[!] Warning: Cannot connect to Qdrant at {settings.qdrant_url} ({e}). Falling back to local storage.")
+                    self.client = None
+
+            if self.client is None:
+                try:
+                    self.client = QdrantClient(path=str(settings.vector_db_dir))
+                except RuntimeError:
+                    # Fallback to in-memory client if local storage is locked by a running uvicorn server
+                    print("[!] Warning: Local storage locked. Falling back to in-memory Qdrant.")
+                    self.client = QdrantClient(":memory:")
 
         if not self.client.collection_exists(self.collection_name):
             self.client.create_collection(

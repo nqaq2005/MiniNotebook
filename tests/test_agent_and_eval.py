@@ -131,3 +131,50 @@ def test_llm_client_custom_url_and_gemini_resolution():
     )
     assert custom_client.is_openai_compatible
     assert custom_client.resolve_endpoint_url() == "http://localhost:11434/v1/chat/completions"
+
+
+def test_llm_client_reasoning_effort_propagation():
+    # 1. Default should be 'medium'
+    client_default = LLMClient(provider="custom", base_url="http://localhost:11434/v1")
+    assert client_default.reasoning_effort == "medium"
+
+    # 2. Explicit custom effort
+    client_low = LLMClient(
+        provider="custom",
+        base_url="http://localhost:11434/v1",
+        reasoning_effort="low",
+    )
+    assert client_low.reasoning_effort == "low"
+
+    # 3. Disabling reasoning
+    client_off = LLMClient(
+        provider="custom",
+        base_url="http://localhost:11434/v1",
+        reasoning_effort="off",
+    )
+    assert client_off.reasoning_effort == "off"
+
+
+def test_language_system_prompt_and_popular_providers():
+    from src.agent.nodes import get_synthesis_system_prompt
+
+    # 1. Vietnamese & English System Prompts
+    vi_prompt = get_synthesis_system_prompt("vi")
+    assert "VIETNAMESE (Tiếng Việt)" in vi_prompt
+
+    en_prompt = get_synthesis_system_prompt("en")
+    assert "ENGLISH" in en_prompt
+
+    # 2. Popular providers auto-endpoint resolution
+    deepseek_client = LLMClient(provider="deepseek", api_key="sk-test")
+    assert deepseek_client.is_openai_compatible
+    assert deepseek_client.resolve_endpoint_url() == "https://api.deepseek.com/v1/chat/completions"
+
+    groq_client = LLMClient(provider="groq", api_key="gsk-test")
+    assert groq_client.is_openai_compatible
+    assert groq_client.resolve_endpoint_url() == "https://api.groq.com/openai/v1/chat/completions"
+
+    ollama_client = LLMClient(provider="ollama")
+    assert ollama_client.is_openai_compatible
+    assert ollama_client.is_configured  # Localhost does not require an API key
+    assert ollama_client.resolve_endpoint_url() == "http://localhost:11434/v1/chat/completions"

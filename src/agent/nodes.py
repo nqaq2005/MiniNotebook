@@ -84,6 +84,7 @@ class LLMClient:
         base_url: Optional[str] = None,
         timeout: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        reasoning_effort: Optional[str] = None,
         transport: Optional[httpx.BaseTransport] = None,
     ):
         self.provider = (provider or settings.llm_provider or "gemini").strip().lower()
@@ -91,12 +92,18 @@ class LLMClient:
         self.base_url = (base_url if base_url is not None else settings.llm_base_url).strip()
         self.timeout = timeout or settings.llm_timeout_seconds
         self.max_tokens = settings.llm_max_tokens if max_tokens is None else max_tokens
+        raw_effort = (
+            reasoning_effort
+            if reasoning_effort is not None
+            else getattr(settings, "llm_reasoning_effort", "medium")
+        )
+        self.reasoning_effort: Optional[str] = raw_effort.strip() if raw_effort else None
         self.transport = transport
         self.last_error: Optional[str] = None
 
         if api_key is not None:
             self.api_key = api_key.strip()
-        elif self.provider in ("custom", "openai", "openai_compatible"):
+        elif self.provider in self.OPENAI_COMPATIBLE_PROVIDERS:
             self.api_key = (
                 settings.custom_api_key
                 or settings.openai_api_key
@@ -104,6 +111,29 @@ class LLMClient:
             ).strip()
         else:
             self.api_key = settings.gemini_api_key.strip()
+
+    OPENAI_COMPATIBLE_PROVIDERS = {
+        "custom",
+        "openai",
+        "openai_compatible",
+        "deepseek",
+        "groq",
+        "openrouter",
+        "ollama",
+        "together",
+        "mistral",
+        "anthropic",
+    }
+
+    PROVIDER_DEFAULT_BASE_URLS = {
+        "openai": "https://api.openai.com/v1",
+        "deepseek": "https://api.deepseek.com/v1",
+        "groq": "https://api.groq.com/openai/v1",
+        "openrouter": "https://openrouter.ai/api/v1",
+        "ollama": "http://localhost:11434/v1",
+        "together": "https://api.together.xyz/v1",
+        "mistral": "https://api.mistral.ai/v1",
+    }
 
     @staticmethod
     def _is_valid_key(key: str) -> bool:
@@ -117,7 +147,7 @@ class LLMClient:
 
     @property
     def is_openai_compatible(self) -> bool:
-        if self.provider in ("custom", "openai", "openai_compatible"):
+        if self.provider in self.OPENAI_COMPATIBLE_PROVIDERS:
             return True
         if self.base_url and (
             self.base_url.rstrip("/").endswith("/v1")
@@ -129,14 +159,17 @@ class LLMClient:
     @property
     def is_configured(self) -> bool:
         if self.is_openai_compatible:
-            # Custom OpenAI-compatible endpoints (like local Ollama/vLLM) require at least a base_url or valid API key
-            return bool(self.base_url or self._is_valid_key(self.api_key))
+            # Local endpoints (Ollama/vLLM) don't require an API key
+            if self.provider == "ollama" or (self.base_url and ("localhost" in self.base_url or "127.0.0.1" in self.base_url)):
+                return True
+            return bool(self._is_valid_key(self.api_key) or self.base_url)
         return self._is_valid_key(self.api_key)
 
     def resolve_endpoint_url(self, stream: bool = False) -> str:
         """Build the target request URL based on provider and custom base_url."""
         if self.is_openai_compatible:
-            raw_base = (self.base_url or "https://api.openai.com/v1").rstrip("/")
+            default_base = self.PROVIDER_DEFAULT_BASE_URLS.get(self.provider, "https://api.openai.com/v1")
+            raw_base = (self.base_url or default_base).rstrip("/")
             if raw_base.endswith("/chat/completions"):
                 return raw_base
             return f"{raw_base}/chat/completions"
@@ -188,6 +221,8 @@ class LLMClient:
         }
         if self.max_tokens and self.max_tokens > 0:
             payload["max_tokens"] = self.max_tokens
+        if self.reasoning_effort and self.reasoning_effort.lower() not in ("none", "off"):
+            payload["reasoning_effort"] = self.reasoning_effort
 
         router = _ThinkTagRouter()
         with client.stream("POST", url, json=payload, headers=headers) as resp:
@@ -240,6 +275,11 @@ class LLMClient:
         gen_cfg: Dict = {"temperature": temperature}
         if self.max_tokens and self.max_tokens > 0:
             gen_cfg["maxOutputTokens"] = self.max_tokens
+        if self.reasoning_effort:
+            effort = self.reasoning_effort.lower()
+            budget_map = {"low": 1024, "medium": 2048, "high": 4096, "off": 0, "none": 0}
+            if effort in budget_map and budget_map[effort] > 0:
+                gen_cfg["thinkingConfig"] = {"thinkingBudget": budget_map[effort]}
         payload: Dict = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": gen_cfg,
@@ -307,16 +347,36 @@ class LLMClient:
 GeminiClient = LLMClient
 
 
-SYNTHESIS_SYSTEM_PROMPT = (
-    "You are an expert AI Research Assistant performing a rigorous literature review.\n"
-    "Answer the user's question using ONLY the provided academic paper passages.\n"
-    "Rules:\n"
-    "1. Every claim MUST include the exact inline citation tag from the source, "
-    "such as [2305.14314: 3 Methodology, p.4].\n"
-    "2. If comparing multiple papers or methods, structure key differences clearly (a Markdown table is welcome).\n"
-    "3. Do NOT invent facts or cite papers not present in the sources.\n"
-    "4. Answer in the same language as the user's question. Be concise and well-structured."
-)
+def get_synthesis_system_prompt(language: str = "vi") -> str:
+    lang = (language or "vi").lower().strip()
+    if lang in ("vi", "vietnamese", "tieng_viet", "tiếng việt"):
+        lang_rule = (
+            "4. IMPORTANT: You MUST write your ENTIRE synthesis in VIETNAMESE (Tiếng Việt) "
+            "with a rigorous, fluent, and scholarly academic style. Translate complex scientific concepts clearly "
+            "while preserving standard international technical terms and KEEPING EXACT inline citation tags "
+            "[paper_id: Section, p.X] intact."
+        )
+    elif lang in ("en", "english"):
+        lang_rule = (
+            "4. IMPORTANT: You MUST write your ENTIRE synthesis in ENGLISH in a formal, scholarly, academic tone. "
+            "Preserve exact inline citation tags [paper_id: Section, p.X] for every claim."
+        )
+    else:
+        lang_rule = "4. Answer in the same language as the user's question. Be concise and well-structured."
+
+    return (
+        "You are an expert AI Research Assistant performing a rigorous literature review.\n"
+        "Answer the user's question using ONLY the provided academic paper passages.\n"
+        "Rules:\n"
+        "1. Every claim MUST include the exact inline citation tag from the source, "
+        "such as [2305.14314: 3 Methodology, p.4].\n"
+        "2. If comparing multiple papers or methods, structure key differences clearly (a Markdown table is welcome).\n"
+        "3. Do NOT invent facts or cite papers not present in the sources.\n"
+        f"{lang_rule}"
+    )
+
+
+SYNTHESIS_SYSTEM_PROMPT = get_synthesis_system_prompt("vi")
 
 
 class AgentNodes:
@@ -409,16 +469,24 @@ class AgentNodes:
         )
 
     @staticmethod
-    def build_extractive_answer(question: str, passages: List[RetrievedPassage], related: List[str]) -> str:
+    def build_extractive_answer(
+        question: str,
+        passages: List[RetrievedPassage],
+        related: List[str],
+        language: str = "vi",
+    ) -> str:
         """Structured extractive synthesis used when the LLM is not configured or fails."""
-        lines = [f"### Literature Review Synthesis: *{question}*\n"]
+        is_vi = (language or "vi").lower().startswith("vi")
+        header = f"### Tổng hợp tài liệu nghiên cứu: *{question}*\n" if is_vi else f"### Literature Review Synthesis: *{question}*\n"
+        lines = [header]
         for p in passages:
             snippet = p.chunk.content.strip().replace("\n", " ")
             if len(snippet) > 360:
                 snippet = snippet[:357] + "..."
             lines.append(f"- **{p.chunk.paper_title}** ({p.citation_tag}): {snippet}")
         if related:
-            lines.append("\n#### Citation Network Connections")
+            net_hdr = "\n#### Mạng lưới liên kết trích dẫn" if is_vi else "\n#### Citation Network Connections"
+            lines.append(net_hdr)
             for rel in related[:5]:
                 lines.append(f"- {rel}")
         return "\n".join(lines)
@@ -429,26 +497,30 @@ class AgentNodes:
         """
         question = state["question"]
         passages = state.get("retrieved_passages", [])
+        lang = state.get("language") or getattr(settings, "llm_language", "vi")
 
         if not passages:
             state["draft_answer"] = (
-                "No relevant passages were found in the indexed research papers. "
-                "Please ingest relevant ArXiv papers first."
+                "Không tìm thấy đoạn trích phù hợp trong thư viện tài liệu đã đánh chỉ mục. "
+                "Vui lòng nạp thêm bài báo ArXiv hoặc tải PDF lên."
+                if (lang or "").lower().startswith("vi")
+                else "No relevant passages were found in the indexed research papers. Please ingest relevant ArXiv papers first."
             )
             return state
 
+        system_prompt = get_synthesis_system_prompt(lang)
         if self.llm.is_configured:
             generated = self.llm.generate(
                 self.build_synthesis_prompt(question, passages),
                 temperature=0.1,
-                system=SYNTHESIS_SYSTEM_PROMPT,
+                system=system_prompt,
             )
             if generated:
                 state["draft_answer"] = generated
                 return state
 
         state["draft_answer"] = self.build_extractive_answer(
-            question, passages, state.get("related_papers_from_graph", [])
+            question, passages, state.get("related_papers_from_graph", []), language=lang
         )
         return state
 
@@ -460,16 +532,20 @@ class AgentNodes:
         """
         question = state["question"]
         passages = state.get("retrieved_passages", [])
+        lang = state.get("language") or getattr(settings, "llm_language", "vi")
 
         if not passages:
             msg = (
-                "No relevant passages were found in the indexed research papers. "
-                "Please ingest relevant ArXiv papers first."
+                "Không tìm thấy đoạn trích phù hợp trong thư viện tài liệu đã đánh chỉ mục. "
+                "Vui lòng nạp thêm bài báo ArXiv hoặc tải PDF lên."
+                if (lang or "").lower().startswith("vi")
+                else "No relevant passages were found in the indexed research papers. Please ingest relevant ArXiv papers first."
             )
             state["draft_answer"] = msg
             yield {"type": "token", "text": msg}
             return
 
+        system_prompt = get_synthesis_system_prompt(lang)
         answer_parts: List[str] = []
         if self.llm.is_configured:
             t0 = time.perf_counter()
@@ -478,7 +554,7 @@ class AgentNodes:
                 for kind, text in self.llm.stream(
                     self.build_synthesis_prompt(question, passages),
                     temperature=0.1,
-                    system=SYNTHESIS_SYSTEM_PROMPT,
+                    system=system_prompt,
                 ):
                     if first_token_at is None:
                         first_token_at = time.perf_counter()
@@ -498,7 +574,9 @@ class AgentNodes:
         else:
             reason = "no LLM is configured"
 
-        fallback = self.build_extractive_answer(question, passages, state.get("related_papers_from_graph", []))
+        fallback = self.build_extractive_answer(
+            question, passages, state.get("related_papers_from_graph", []), language=lang
+        )
         state["draft_answer"] = fallback
         yield {
             "type": "fallback",

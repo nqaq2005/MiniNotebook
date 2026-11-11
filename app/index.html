@@ -1,914 +1,473 @@
 <!DOCTYPE html>
-<html lang="vi" class="dark">
+<html lang="vi" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ScholarRAG — NotebookLM Research Workspace</title>
+  <meta name="application-name" content="ScholarRAG" />
+  <title>MiniNotebook</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%274%27 width=%2756%27 height=%2756%27 rx=%2715%27 fill=%27%234f7cff%27/%3E%3Cpath d=%27M20 16h23a5 5 0 015 5v28H25a5 5 0 01-5-5V16zm0 0v28a5 5 0 005 5m-5-28h28M28 25v16m8-16v16%27 fill=%27none%27 stroke=%27white%27 stroke-width=%273.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E" />
+  <script>
+    // Apply saved theme before first paint (no flash)
+    (function () {
+      try {
+        var t = localStorage.getItem('scholar_theme');
+        if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/three-spritetext@1.9.1/dist/three-spritetext.min.js"></script>
-  <script src="https://unpkg.com/3d-force-graph@1.73.3/dist/3d-force-graph.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
+
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            sans: ['"Google Sans Flex"', '"Google Sans"', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
             mono: ['"JetBrains Mono"', 'monospace'],
           }
         }
       }
     }
   </script>
-  <style>
-    body {
-      background-color: #131314;
-      color: #e3e3e3;
-      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-      -webkit-font-smoothing: antialiased;
-    }
-    .nb-card {
-      background-color: #1e1f20;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-    }
-    .nb-surface {
-      background-color: #282a2c;
-      border: 1px solid rgba(255, 255, 255, 0.07);
-    }
-    .nb-input {
-      background-color: #131314;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
-    }
-    .nb-input:focus {
-      outline: none;
-      border-color: #a8c7fa;
-      box-shadow: 0 0 0 2px rgba(168, 199, 250, 0.15);
-    }
-    .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
-      font-weight: 600;
-      margin-top: 1.1rem;
-      margin-bottom: 0.45rem;
-      color: #f8fafc;
-    }
-    .markdown-body p { margin-bottom: 0.75rem; line-height: 1.72; color: #e2e8f0; }
-    .markdown-body ul, .markdown-body ol { margin-left: 1.3rem; margin-bottom: 0.75rem; list-style-type: disc; color: #e2e8f0; }
-    .markdown-body li { margin-bottom: 0.35rem; line-height: 1.68; }
-    .markdown-body strong { color: #ffffff; font-weight: 600; }
-    .markdown-body code {
-      font-family: 'JetBrains Mono', monospace;
-      background: rgba(168, 199, 250, 0.12);
-      border: 1px solid rgba(168, 199, 250, 0.22);
-      color: #a8c7fa;
-      padding: 0.1rem 0.4rem;
-      border-radius: 0.35rem;
-      font-size: 0.82em;
-    }
-    .markdown-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.86rem; }
-    .markdown-body th, .markdown-body td { border: 1px solid rgba(255, 255, 255, 0.1); padding: 0.55rem 0.75rem; text-align: left; }
-    .markdown-body th { background: rgba(255, 255, 255, 0.04); color: #cbd5e1; }
-    .cite-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      padding: 0.08rem 0.48rem;
-      margin: 0 0.15rem;
-      border-radius: 999px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.74rem;
-      font-weight: 500;
-      background: rgba(168, 199, 250, 0.14);
-      color: #a8c7fa;
-      border: 1px solid rgba(168, 199, 250, 0.28);
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .cite-chip:hover {
-      background: rgba(168, 199, 250, 0.26);
-      transform: translateY(-1px);
-    }
-    .scene-nav-info { display: none !important; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-thumb { background: #37393b; border-radius: 3px; }
-  </style>
+  <link rel=stylesheet href="/static/css/tokens.css">
+  <link rel=stylesheet href="/static/css/base.css">
+  <link rel=stylesheet href="/static/css/components.css">
+  <link rel=stylesheet href="/static/css/markdown.css">
 </head>
-<body class="h-screen overflow-hidden flex flex-col select-none sm:select-auto">
+<body class="h-screen overflow-hidden flex flex-col">
 
-  <!-- TOP NOTEBOOKLM HEADER -->
-  <header class="h-14 px-5 flex items-center justify-between shrink-0">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#4285f4] via-[#9b72cb] to-[#d96570] flex items-center justify-center shadow-sm">
-        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
+  <!-- ================= TOP BAR ================= -->
+  <header class="h-16 px-4 flex items-center justify-between shrink-0 gap-4">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style="background: linear-gradient(145deg, #5b8cff, #7656d6);">
+        <svg class="w-[21px] h-[21px] text-white" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 4.75A1.75 1.75 0 016.75 3H20v17H6.75A1.75 1.75 0 015 18.25v-13.5zM5 6h15M9 3v17m4-12h4m-4 4h4"/>
         </svg>
       </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="text-base font-semibold tracking-tight text-white">ScholarRAG</span>
-          <span class="text-[11px] px-2 py-0.5 rounded-full bg-[#282a2c] text-zinc-400 font-medium">Research Notebook</span>
-        </div>
-      </div>
+      <span id="system-name" class="text-lg font-semibold tracking-tight t-strong select-none">MiniNotebook</span>
     </div>
 
-    <!-- RIGHT ACTIONS -->
-    <div class="flex items-center gap-2.5">
-      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1e1f20] border border-white/[0.06] text-xs">
-        <span id="llm-dot" class="w-2 h-2 rounded-full bg-zinc-500"></span>
-        <span id="llm-status-badge" class="text-zinc-300 font-mono text-[11px]">Checking...</span>
+    <div class="flex items-center gap-1.5 shrink-0">
+      <div class="chip hidden sm:inline-flex">
+        <span id="llm-dot" class="w-2 h-2 rounded-full" style="background: var(--faint)"></span>
+        <span id="llm-status-badge" class="font-mono text-[11px]">Checking...</span>
       </div>
-
-      <button onclick="openSettingsModal()" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1e1f20] hover:bg-[#282a2c] border border-white/[0.07] text-xs font-medium text-zinc-200 transition">
-        <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <button onclick="toggleTheme()" id="btn-theme" class="icon-btn" title="Chuyển Dark / Light">
+        <svg id="icon-theme-sun" class="w-[18px] h-[18px] hidden" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path stroke-linecap="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/></svg>
+        <svg id="icon-theme-moon" class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+      </button>
+      <div class="flex items-center p-0.5 rounded-full border hairline text-[11px] font-semibold shrink-0" style="background: var(--panel)" role="group" aria-label="Chọn ngôn ngữ giao diện">
+        <button type="button" onclick="setLanguage('vi')" id="lang-btn-vi" class="px-2.5 py-1 rounded-full transition-colors">VI</button>
+        <button type="button" onclick="setLanguage('en')" id="lang-btn-en" class="px-2.5 py-1 rounded-full transition-colors">EN</button>
+      </div>
+      <button onclick="openSettingsModal()" class="btn-outline">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
         </svg>
-        <span>Settings</span>
+        <span class="hidden sm:inline">Cài đặt</span>
       </button>
     </div>
   </header>
 
-  <!-- NOTEBOOKLM SPLIT WORKSPACE -->
-  <div class="flex-1 flex gap-3.5 px-4 pb-4 overflow-hidden">
+  <!-- ================= THREE-PANEL WORKSPACE ================= -->
+  <div class="flex-1 flex gap-3 px-3 pb-3 overflow-hidden min-h-0">
 
-    <!-- LEFT PANEL: SOURCES (NGUỒN TÀI LIỆU) -->
-    <aside class="w-80 lg:w-[340px] nb-card rounded-3xl flex flex-col overflow-hidden shrink-0">
-      <!-- Sources Header -->
-      <div class="p-4 pb-3 flex items-center justify-between border-b border-white/[0.05]">
+    <!-- ===== LEFT: SOURCES ===== -->
+    <aside id="sources-sidebar" class="panel w-[300px] xl:w-[330px] flex flex-col overflow-hidden shrink-0">
+      <div class="h-14 px-4 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-2">
-          <span class="text-sm font-semibold text-zinc-100">Sources</span>
-          <span id="stat-papers" class="px-2 py-0.5 rounded-full bg-[#282a2c] text-[11px] font-mono text-zinc-300">0</span>
+          <span class="text-[15px] font-medium t-strong">Nguồn</span>
+          <span id="stat-papers" class="chip !py-0.5 !px-2 font-mono">0</span>
         </div>
-        <button onclick="openAddSourceModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#a8c7fa] hover:bg-[#bfdbfe] text-[#062e6f] font-semibold text-xs transition shadow-sm">
-          <span>+ Add source</span>
+        <button onclick="toggleSourcesSidebar()" class="icon-btn sm" title="Thu gọn">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         </button>
       </div>
 
-      <!-- Search Filter inside Sources -->
-      <div class="px-3.5 pt-3 pb-2">
-        <input id="paper-filter" oninput="renderSourcesList()" type="text" placeholder="Filter sources..." class="w-full nb-input rounded-full px-3.5 py-1.5 text-xs text-zinc-200 placeholder-zinc-500" />
+      <div class="px-4 pb-3 space-y-2.5">
+        <button onclick="openAddSourceModal()" class="btn-outline w-full !py-2.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
+          Thêm nguồn
+        </button>
+        <input id="paper-filter" oninput="renderSourcesList()" type="text" placeholder="Lọc nguồn..." class="field !rounded-full !py-1.5 !text-xs" />
       </div>
 
-      <!-- Sources Scrollable List -->
-      <div id="sources-list-container" class="flex-1 overflow-y-auto px-3 py-1.5 space-y-1.5"></div>
+      <div id="sources-list-container" class="flex-1 overflow-y-auto px-2.5 pb-2 space-y-0.5"></div>
 
-      <!-- Bottom Knowledge Summary Footer -->
-      <div class="p-3.5 border-t border-white/[0.05] bg-[#18191a] flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-        <span><strong id="stat-chunks" class="text-zinc-200">0</strong> chunks</span>
-        <span>•</span>
-        <span><strong id="stat-nodes" class="text-zinc-200">0</strong> graph nodes</span>
-        <span>•</span>
-        <span><strong id="stat-edges" class="text-zinc-200">0</strong> links</span>
+      <div class="px-4 py-3 border-t hairline flex items-center justify-between text-[11px] t-muted font-mono" style="background: var(--panel-2)">
+        <span><b id="stat-chunks" class="t-strong">0</b> chunks</span>
+        <span><b id="stat-nodes" class="t-strong">0</b> nodes</span>
+        <span><b id="stat-edges" class="t-strong">0</b> links</span>
       </div>
     </aside>
 
-    <!-- CENTER/RIGHT STUDIO PANEL: CHAT & 3D GRAPH -->
-    <main class="flex-1 nb-card rounded-3xl flex flex-col overflow-hidden relative">
+    <!-- ===== CENTER: CHAT / GRAPH ===== -->
+    <main id="chat-main-panel" class="panel flex-1 min-w-0 flex flex-col overflow-hidden relative">
 
-      <!-- Studio Top Bar -->
-      <div class="h-13 px-5 py-2.5 border-b border-white/[0.05] flex items-center justify-between shrink-0">
-        <!-- View Switcher Pills -->
-        <div class="flex items-center gap-1 bg-[#131314] p-1 rounded-full border border-white/[0.06]">
-          <button onclick="switchMainView('chat')" id="view-btn-chat" class="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#282a2c] text-white text-xs font-medium transition">
-            <svg class="w-3.5 h-3.5 text-[#a8c7fa]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-            </svg>
-            <span>Chat & Synthesis</span>
+      <div class="h-14 px-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-1">
+          <button onclick="toggleSourcesSidebar()" id="btn-open-sources" class="icon-btn sm hidden" title="Mở thanh nguồn">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
           </button>
-          <button onclick="switchMainView('graph')" id="view-btn-graph" class="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-zinc-400 hover:text-zinc-200 text-xs font-medium transition">
-            <svg class="w-3.5 h-3.5 text-violet-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"/>
-            </svg>
-            <span>3D Document Graph</span>
+          <span id="center-title" class="text-[15px] font-medium t-strong px-1">Trò chuyện</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <button onclick="clearConversation()" id="btn-clear" class="icon-btn" title="Xóa cuộc trò chuyện">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>
+          </button>
+          <button onclick="toggleMarkdownPanel()" id="btn-toggle-markdown" class="icon-btn flex items-center gap-1.5 px-2.5 !w-auto" title="Ẩn/hiện Soạn thảo Markdown" aria-label="Ẩn/hiện Soạn thảo Markdown">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4.75A2.75 2.75 0 017.75 2H20v17H7.75A2.75 2.75 0 015 16.25v-11.5z"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 5v14.25A2.75 2.75 0 017.75 22H20M9 7h7M9 10.5h7"/></svg>
+            <span class="text-xs font-medium hidden md:inline">Ghi chú Markdown</span>
           </button>
         </div>
-
-        <button onclick="clearConversation()" class="text-xs text-zinc-400 hover:text-zinc-200 px-3 py-1 rounded-full hover:bg-white/[0.04] transition">
-          Clear chat
-        </button>
       </div>
 
-      <!-- ================= VIEW 1: NOTEBOOKLM CHAT & SYNTHESIS ================= -->
-      <div id="view-panel-chat" class="flex-1 flex flex-col overflow-hidden">
+      <!-- ---------- CHAT VIEW ---------- -->
+      <div id="view-panel-chat" class="flex-1 flex flex-col overflow-hidden min-h-0">
+        <div id="chat-scroll-area" class="flex-1 overflow-y-auto px-5 sm:px-8 pt-2 pb-6">
+          <div class="max-w-[760px] mx-auto">
 
-        <!-- Scrollable Conversation Stream -->
-        <div id="chat-scroll-area" class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-
-          <!-- Notebook Overview Welcome Banner -->
-          <div id="notebook-overview" class="max-w-3xl mx-auto nb-surface rounded-3xl p-6 space-y-4">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-[#a8c7fa]/15 border border-[#a8c7fa]/30 flex items-center justify-center text-lg">✨</div>
+            <!-- Notebook overview (empty state) -->
+            <div id="notebook-overview" class="pt-6 pb-4 space-y-5">
+              <div class="text-5xl">📚</div>
               <div>
-                <h2 class="text-base font-semibold text-white">Notebook Guide & Synthesis</h2>
-                <p class="text-xs text-zinc-400">Grounded answers synthesized across your library with section- and page-level citations.</p>
+                <h2 id="overview-title" class="text-[28px] leading-tight font-medium t-strong">Sổ tay nghiên cứu</h2>
+                <div id="overview-sub" class="text-xs t-muted mt-1.5 font-mono">0 nguồn</div>
               </div>
+              <p class="text-sm t-muted leading-relaxed max-w-xl">
+                Đặt câu hỏi, so sánh và tổng hợp các bài báo trong thư viện. Mỗi câu trả lời đều có trích dẫn đến đúng mục và trang của nguồn.
+              </p>
+              <div id="suggestions-box" class="flex flex-wrap gap-2 pt-1"></div>
             </div>
 
-            <div class="space-y-2 pt-1">
-              <div class="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Suggested research questions</div>
-              <div id="suggestions-box" class="flex flex-wrap gap-2"></div>
-            </div>
+            <div id="qa-results" class="flex flex-col gap-7"></div>
           </div>
-
-          <!-- Q&A Thread Container -->
-          <div id="qa-results" class="max-w-3xl mx-auto space-y-6"></div>
-
-          <!-- Loading Skeleton -->
-          <div id="ask-loading" class="hidden max-w-3xl mx-auto nb-surface rounded-3xl p-6 flex items-center gap-3.5">
-            <div class="w-5 h-5 border-2 border-[#a8c7fa] border-t-transparent rounded-full animate-spin shrink-0"></div>
-            <div class="text-xs text-zinc-300">
-              Synthesizing across sources • Running Hybrid Search (Qdrant + BM25) & Cross-Encoder Reranking...
-            </div>
-          </div>
-
         </div>
 
-        <!-- Floating Bottom NotebookLM Input Bar -->
-        <div class="px-6 pb-5 pt-2 bg-gradient-to-t from-[#1e1f20] via-[#1e1f20] to-transparent shrink-0">
-          <form onsubmit="submitQuestion(event)" class="max-w-3xl mx-auto flex items-center gap-2 bg-[#282a2c] border border-white/[0.1] focus-within:border-[#a8c7fa]/60 rounded-full pl-5 pr-2 py-2 shadow-xl">
-            <input id="question-input" type="text" placeholder="Ask a question about your sources or compare papers..." class="flex-1 bg-transparent text-sm text-white placeholder-zinc-400 focus:outline-none" />
-            <span id="input-source-badge" class="hidden sm:inline-block text-[11px] font-mono text-zinc-400 px-2.5 py-1 rounded-full bg-[#1e1f20]">0 sources</span>
-            <button type="submit" id="btn-ask" class="w-9 h-9 rounded-full bg-[#a8c7fa] hover:bg-[#bfdbfe] text-[#062e6f] flex items-center justify-center transition shrink-0">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/>
-              </svg>
+        <!-- Composer -->
+        <div class="px-5 sm:px-8 pb-4 pt-1 shrink-0">
+          <form onsubmit="submitQuestion(event)" class="composer max-w-[760px] mx-auto flex items-center gap-2 pl-5 pr-2 py-2">
+            <input id="question-input" type="text" autocomplete="off" placeholder="Bắt đầu nhập..." class="flex-1 min-w-0 bg-transparent text-sm focus:outline-none" style="color: var(--text-strong)" />
+
+            <span id="input-source-badge" class="hidden sm:inline-block text-[11px] t-muted px-2 shrink-0 whitespace-nowrap">0 nguồn</span>
+            <button type="submit" id="btn-ask" class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition" style="background: var(--accent); color: var(--on-accent)">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>
             </button>
           </form>
+          <div class="max-w-[760px] mx-auto text-center text-[11px] t-faint mt-2">MiniNotebook có thể mắc lỗi. Hãy đối chiếu với nguồn trích dẫn.</div>
         </div>
-
       </div>
 
-      <!-- ================= VIEW 2: 3D DOCUMENT CITATION GRAPH ================= -->
-      <div id="view-panel-graph" class="hidden flex-1 relative overflow-hidden bg-[#0b0c0e]">
-
-        <!-- Top Floating Legend & Controls -->
-        <div class="absolute top-4 left-4 right-4 z-10 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
-          <div class="bg-[#1e1f20]/90 backdrop-blur-md border border-white/[0.08] rounded-2xl px-4 py-2.5 pointer-events-auto shadow-lg">
-            <div class="text-xs font-semibold text-white">3D Document Citation Constellation</div>
-            <div class="flex flex-wrap items-center gap-4 mt-1.5 text-[11px] text-zinc-300">
-              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#a78bfa] shadow-[0_0_8px_#a78bfa] inline-block"></span> Library Paper (with Title)</span>
-              <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#38bdf8] shadow-[0_0_8px_#38bdf8] inline-block"></span> Shared Cited Paper (≥2)</span>
-              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#64748b] inline-block"></span> Referenced Work</span>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 pointer-events-auto">
-            <button onclick="toggleLabelMode()" id="btn-label-mode" class="px-3.5 py-2 rounded-full bg-[#1e1f20]/90 hover:bg-[#282a2c] text-xs font-medium text-[#a8c7fa] border border-white/[0.08] transition shadow">
-              Labels: All Titles
-            </button>
-            <button onclick="toggleGraphOrbit()" id="btn-orbit" class="px-3.5 py-2 rounded-full bg-[#1e1f20]/90 hover:bg-[#282a2c] text-xs font-medium text-violet-300 border border-white/[0.08] transition shadow">
-              Auto-Orbit: ON
-            </button>
-            <button onclick="resetGraphCamera()" class="px-3.5 py-2 rounded-full bg-[#1e1f20]/90 hover:bg-[#282a2c] text-xs font-medium text-zinc-300 border border-white/[0.08] transition shadow">
-              Reset View
-            </button>
-          </div>
-        </div>
-
-        <!-- Bottom Node Inspector Card -->
-        <div id="graph-node-inspector" class="hidden absolute bottom-4 left-4 right-4 sm:right-auto sm:w-[420px] z-10 bg-[#1e1f20]/95 backdrop-blur-md border border-white/[0.12] rounded-2xl p-4 shadow-2xl"></div>
-
-        <!-- 3D WebGL Canvas -->
-        <div id="citation-3d-graph" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
-      </div>
-
-      <!-- SLIDE-OVER SOURCE GUIDE DRAWER (WHEN CLICKING A SOURCE OR CITATION) -->
-      <div id="source-drawer" class="hidden absolute top-0 right-0 bottom-0 w-full sm:w-[440px] bg-[#1e1f20] border-l border-white/[0.08] z-20 flex flex-col shadow-2xl">
-        <div class="p-4 border-b border-white/[0.06] flex items-center justify-between">
-          <span id="drawer-badge" class="text-xs font-mono text-[#a8c7fa] px-2.5 py-0.5 rounded-full bg-[#a8c7fa]/10">Source Guide</span>
-          <button onclick="closeSourceDrawer()" class="w-7 h-7 rounded-full hover:bg-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white">✕</button>
+      <!-- ---------- SLIDE-OVER DRAWER ---------- -->
+      <div id="source-drawer" class="hidden absolute top-0 right-0 bottom-0 w-full sm:w-[440px] z-20 flex flex-col overlay-card" style="border-radius: 20px 0 0 20px">
+        <div class="h-14 px-4 flex items-center justify-between border-b hairline shrink-0">
+          <span id="drawer-badge" class="chip font-mono !text-[11px]">Chi tiết</span>
+          <button onclick="closeSourceDrawer()" class="icon-btn sm">✕</button>
         </div>
         <div id="drawer-body" class="flex-1 overflow-y-auto p-5 space-y-4 text-xs"></div>
       </div>
-
     </main>
-  </div>
 
-  <!-- ================= MODAL 1: + ADD SOURCE (NOTEBOOKLM STYLE) ================= -->
-  <div id="modal-add-source" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="nb-card rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-white/[0.1]">
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="text-base font-semibold text-white">Add sources to Notebook</h3>
-          <p class="text-xs text-zinc-400 mt-0.5">Fetch scientific papers from ArXiv or upload a local PDF document.</p>
+    <!-- ===== RIGHT: MARKDOWN EDITOR ===== -->
+    <aside id="markdown-panel" class="panel w-[380px] xl:w-[460px] 2xl:w-[500px] hidden lg:flex flex-col overflow-hidden shrink-0">
+      
+      <!-- Panel Header -->
+      <div class="h-14 px-3.5 flex items-center justify-between border-b hairline shrink-0">
+        <div class="flex items-center gap-2 min-w-0 flex-1 mr-2">
+          <span class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background: var(--accent-bg); color: var(--accent)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </span>
+          <input id="md-doc-title" type="text" value="Ghi chú nghiên cứu.md" spellcheck="false"
+                 class="bg-transparent text-sm font-semibold t-strong border border-transparent hover:border-[var(--border-strong)] focus:border-[var(--accent)] px-1.5 py-0.5 rounded-lg focus:outline-none min-w-0 flex-1 truncate"
+                 title="Bấm để đổi tên tài liệu" oninput="saveMarkdownDocTitle(this.value)" />
         </div>
-        <button onclick="closeAddSourceModal()" class="w-8 h-8 rounded-full hover:bg-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white">✕</button>
-      </div>
 
-      <div class="flex bg-[#131314] p-1 rounded-full border border-white/[0.06] text-xs font-medium">
-        <button onclick="switchIngestTab('arxiv')" id="btn-ingest-arxiv" class="flex-1 py-2 rounded-full bg-[#282a2c] text-white transition">🔎 Search ArXiv</button>
-        <button onclick="switchIngestTab('pdf')" id="btn-ingest-pdf" class="flex-1 py-2 rounded-full text-zinc-400 hover:text-white transition">📄 Upload PDF</button>
-      </div>
-
-      <!-- ArXiv Form -->
-      <div id="panel-ingest-arxiv" class="space-y-3.5 text-xs">
-        <div>
-          <label class="block text-zinc-400 mb-1.5">Quick research topics</label>
-          <select id="preset-select" onchange="applyPreset()" class="w-full nb-input rounded-xl px-3.5 py-2.5 text-zinc-200">
-            <option value="">Custom topic or ArXiv ID...</option>
-            <option value="Agentic Retrieval Augmented Generation GraphRAG">Agentic RAG & GraphRAG</option>
-            <option value="3D Gaussian Splatting real-time radiance field rendering">3D Gaussian Splatting & NeRF</option>
-            <option value="Diffusion Policy visuomotor robot manipulation">Diffusion Policy & Robotics</option>
-            <option value="Vision Language Models multimodal instruction tuning">Multimodal Vision-Language (VLM)</option>
-            <option value="Chain of Thought reasoning test-time compute scaling LLMs">Reasoning LLMs & Test-Time Compute</option>
-            <option value="AlphaFold protein structure prediction diffusion">Protein Folding & Biomolecular AI</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-zinc-400 mb-1.5">Search query or ArXiv ID</label>
-          <input id="arxiv-query" type="text" placeholder="e.g., GraphRAG, 3D Gaussian Splatting, or 2305.14314" class="w-full nb-input rounded-xl px-3.5 py-2.5 text-white placeholder-zinc-500" />
-        </div>
-        <div class="flex items-center justify-between">
-          <span class="text-zinc-400">Number of papers to fetch</span>
-          <input id="arxiv-max" type="number" min="1" max="8" value="2" class="w-16 nb-input rounded-xl px-2.5 py-1.5 text-center font-mono text-white" />
-        </div>
-        <button onclick="ingestFromArxiv()" id="btn-do-ingest" class="w-full py-2.5 rounded-full bg-[#a8c7fa] hover:bg-[#bfdbfe] text-[#062e6f] font-semibold text-xs transition">
-          Fetch & Index into Notebook
-        </button>
-      </div>
-
-      <!-- Upload Local PDF Form -->
-      <div id="panel-ingest-pdf" class="space-y-3.5 text-xs hidden">
-        <div class="border-2 border-dashed border-white/[0.12] rounded-2xl p-5 text-center space-y-2">
-          <input id="pdf-file" type="file" accept=".pdf" class="w-full text-zinc-300 text-xs file:mr-3 file:py-1.5 file:px-3.5 file:rounded-full file:border-0 file:bg-[#282a2c] file:text-[#a8c7fa] hover:file:bg-zinc-700" />
-        </div>
-        <div>
-          <label class="block text-zinc-400 mb-1.5">Custom document title (optional)</label>
-          <input id="pdf-title" type="text" placeholder="Auto-detected from PDF if left blank" class="w-full nb-input rounded-xl px-3.5 py-2.5 text-white placeholder-zinc-500" />
-        </div>
-        <button onclick="uploadLocalPdf()" id="btn-do-upload" class="w-full py-2.5 rounded-full bg-[#a8c7fa] hover:bg-[#bfdbfe] text-[#062e6f] font-semibold text-xs transition">
-          Parse with RapidOCR & Index
-        </button>
-      </div>
-
-      <div id="ingest-msg" class="text-xs font-mono hidden pt-1"></div>
-    </div>
-  </div>
-
-  <!-- ================= MODAL 2: ENGINE & LLM SETTINGS ================= -->
-  <div id="modal-settings" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="nb-card rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/[0.1] text-xs">
-      <div class="flex items-center justify-between">
-        <h3 class="text-base font-semibold text-white">Retrieval & LLM Settings</h3>
-        <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-full hover:bg-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-white">✕</button>
-      </div>
-
-      <div>
-        <label class="block text-zinc-400 mb-1">Retrieval Mode</label>
-        <select id="cfg-search-mode" class="w-full nb-input rounded-xl px-3 py-2 text-zinc-200">
-          <option value="hybrid">Hybrid (Qdrant Dense + BM25 + CrossEncoder)</option>
-          <option value="dense">Dense Vector Only (BGE-Small ONNX)</option>
-          <option value="sparse">Sparse Lexical Only (BM25Okapi)</option>
-        </select>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-zinc-400 mb-1">LLM Provider</label>
-          <select id="cfg-provider" class="w-full nb-input rounded-xl px-3 py-2 text-zinc-200">
-            <option value="gemini">Google Gemini</option>
-            <option value="custom">Custom URL</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-zinc-400 mb-1">Model Name</label>
-          <input id="cfg-model" type="text" value="gemini-2.5-flash" class="w-full nb-input rounded-xl px-3 py-2 text-zinc-200 font-mono" />
-        </div>
-      </div>
-
-      <div>
-        <label class="block text-zinc-400 mb-1">Custom Base URL (Optional)</label>
-        <input id="cfg-base-url" type="text" placeholder="e.g., http://localhost:11434/v1" class="w-full nb-input rounded-xl px-3 py-2 text-zinc-200 font-mono placeholder-zinc-600" />
-      </div>
-
-      <div>
-        <label class="block text-zinc-400 mb-1">API Key Override (Optional, defaults to .env)</label>
-        <input id="cfg-api-key" type="password" placeholder="Leave blank to use .env key" class="w-full nb-input rounded-xl px-3 py-2 text-zinc-200 placeholder-zinc-600" />
-      </div>
-
-      <div class="pt-2 flex justify-end">
-        <button onclick="closeSettingsModal()" class="px-5 py-2 rounded-full bg-[#a8c7fa] text-[#062e6f] font-semibold">Done</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    let globalState = { papers: [], graph: { nodes: [], edges: [] }, lastCitations: [] };
-    let graph3D = null;
-    let orbitTimer = null;
-    let isOrbiting = true;
-    let orbitAngle = 0;
-    let showAllLabels = true;
-
-    function openAddSourceModal() { document.getElementById('modal-add-source').classList.remove('hidden'); }
-    function closeAddSourceModal() { document.getElementById('modal-add-source').classList.add('hidden'); }
-    function openSettingsModal() { document.getElementById('modal-settings').classList.remove('hidden'); }
-    function closeSettingsModal() { document.getElementById('modal-settings').classList.add('hidden'); }
-    function closeSourceDrawer() { document.getElementById('source-drawer').classList.add('hidden'); }
-
-    function switchIngestTab(tab) {
-      document.getElementById('panel-ingest-arxiv').classList.toggle('hidden', tab !== 'arxiv');
-      document.getElementById('panel-ingest-pdf').classList.toggle('hidden', tab !== 'pdf');
-      document.getElementById('btn-ingest-arxiv').className = tab === 'arxiv'
-        ? 'flex-1 py-2 rounded-full bg-[#282a2c] text-white transition'
-        : 'flex-1 py-2 rounded-full text-zinc-400 hover:text-white transition';
-      document.getElementById('btn-ingest-pdf').className = tab === 'pdf'
-        ? 'flex-1 py-2 rounded-full bg-[#282a2c] text-white transition'
-        : 'flex-1 py-2 rounded-full text-zinc-400 hover:text-white transition';
-    }
-
-    function switchMainView(view) {
-      const isChat = view === 'chat';
-      document.getElementById('view-panel-chat').classList.toggle('hidden', !isChat);
-      document.getElementById('view-panel-graph').classList.toggle('hidden', isChat);
-      document.getElementById('view-btn-chat').className = isChat
-        ? 'flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#282a2c] text-white text-xs font-medium transition'
-        : 'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-zinc-400 hover:text-zinc-200 text-xs font-medium transition';
-      document.getElementById('view-btn-graph').className = !isChat
-        ? 'flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#282a2c] text-white text-xs font-medium transition'
-        : 'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-zinc-400 hover:text-zinc-200 text-xs font-medium transition';
-
-      if (!isChat) {
-        setTimeout(() => render3DGraph(), 60);
-      } else {
-        stopOrbit();
-      }
-    }
-
-    function applyPreset() {
-      const val = document.getElementById('preset-select').value;
-      if (val) document.getElementById('arxiv-query').value = val;
-    }
-
-    async function loadStats() {
-      const res = await fetch('/api/stats');
-      const data = await res.json();
-      globalState.papers = data.papers || [];
-      globalState.graph = data.graph || { nodes: [], edges: [] };
-
-      document.getElementById('stat-papers').textContent = data.metrics.ingested_papers;
-      document.getElementById('input-source-badge').textContent = `${data.metrics.ingested_papers} sources`;
-      document.getElementById('stat-chunks').textContent = data.metrics.indexed_chunks;
-      document.getElementById('stat-nodes').textContent = data.metrics.total_nodes;
-      document.getElementById('stat-edges').textContent = data.metrics.total_citation_edges;
-
-      document.getElementById('cfg-provider').value = data.config.llm_provider || 'gemini';
-      document.getElementById('cfg-model').value = data.config.llm_model || 'gemini-2.5-flash';
-      document.getElementById('cfg-base-url').value = data.config.llm_base_url || '';
-
-      const badge = document.getElementById('llm-status-badge');
-      const dot = document.getElementById('llm-dot');
-      if (data.config.llm_configured) {
-        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]';
-        badge.textContent = data.config.llm_model;
-      } else {
-        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
-        badge.textContent = 'Extractive Mode';
-      }
-
-      const sugBox = document.getElementById('suggestions-box');
-      sugBox.innerHTML = '';
-      (data.suggestions || []).forEach(s => {
-        const btn = document.createElement('button');
-        btn.className = 'text-xs px-3.5 py-2 rounded-2xl bg-[#1e1f20] hover:bg-[#333538] text-zinc-200 border border-white/[0.07] transition text-left';
-        btn.textContent = s.label;
-        btn.onclick = () => {
-          document.getElementById('question-input').value = s.question;
-          document.getElementById('question-input').focus();
-        };
-        sugBox.appendChild(btn);
-      });
-
-      renderSourcesList();
-    }
-
-    function renderSourcesList() {
-      const container = document.getElementById('sources-list-container');
-      const kw = (document.getElementById('paper-filter').value || '').toLowerCase();
-      const filtered = globalState.papers.filter(p =>
-        !kw || p.title.toLowerCase().includes(kw) || p.paper_id.toLowerCase().includes(kw) || p.authors.join(' ').toLowerCase().includes(kw)
-      );
-
-      if (!filtered.length) {
-        container.innerHTML = `
-          <div class="p-6 text-center space-y-2">
-            <div class="text-xs text-zinc-400">No sources in notebook</div>
-            <button onclick="openAddSourceModal()" class="text-xs text-[#a8c7fa] hover:underline">+ Add your first paper</button>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <!-- Vị trí hiển thị ghi chú: cạnh chat hoặc phủ lên chat -->
+          <div class="seg md-layout-switch" aria-label="Vị trí hiển thị ghi chú">
+            <button type="button" onclick="setMarkdownLayoutMode('split')" id="btn-md-layout-split" class="active" title="Chia đôi với khung chat" aria-label="Chia đôi với khung chat" aria-pressed="true">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M12 4v16" stroke-linecap="round"/><path d="M7 8h2M7 11h2m6-3h2m-2 3h2" stroke-linecap="round" opacity=".65"/></svg>
+            </button>
+            <button type="button" onclick="setMarkdownLayoutMode('overlay')" id="btn-md-layout-overlay" title="Phủ toàn bộ khung chat" aria-label="Phủ toàn bộ khung chat" aria-pressed="false">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="7" width="14" height="14" rx="2.5"/><rect x="7" y="3" width="14" height="14" rx="2.5" fill="var(--panel)"/><path d="M11 7h6m-6 3h4" stroke-linecap="round" opacity=".65"/></svg>
+            </button>
           </div>
-        `;
-        return;
-      }
 
-      container.innerHTML = filtered.map(p => `
-        <div onclick="inspectSourcePaper('${p.paper_id}')" class="group flex items-start justify-between gap-2.5 p-3 rounded-2xl hover:bg-[#282a2c] cursor-pointer transition border border-transparent hover:border-white/[0.06]">
-          <div class="flex items-start gap-2.5 min-w-0">
-            <div class="w-7 h-7 rounded-lg bg-[#a8c7fa]/12 border border-[#a8c7fa]/25 flex items-center justify-center text-[#a8c7fa] shrink-0 mt-0.5 text-xs font-mono">
-              PDF
+          <!-- Editor modes: Edit / Preview / Split -->
+          <div class="seg !p-0.5" title="Chế độ soạn thảo">
+            <button type="button" onclick="setEditorViewMode('edit')" id="btn-md-mode-edit" class="!py-1 !px-2.5 !text-xs active" title="Chỉ soạn thảo" aria-label="Chỉ soạn thảo"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 20h9" stroke-linecap="round"/><path d="M16.5 3.5a2.12 2.12 0 013 3L8 18l-4 1 1-4 11.5-11.5z" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button type="button" onclick="setEditorViewMode('split')" id="btn-md-mode-split" class="!py-1 !px-2.5 !text-xs hidden sm:inline-block" title="Chia đôi màn hình" aria-label="Chia đôi màn hình"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M12 4v16" stroke-linecap="round"/><path d="M6.5 8h2m-2 3h2m7-3h2m-2 3h2" stroke-linecap="round" opacity=".65"/></svg></button>
+            <button type="button" onclick="setEditorViewMode('preview')" id="btn-md-mode-preview" class="!py-1 !px-2.5 !text-xs" title="Xem trước tài liệu" aria-label="Xem trước tài liệu"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2.5 12s3.3-6 9.5-6 9.5 6 9.5 6-3.3 6-9.5 6-9.5-6-9.5-6z" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5"/></svg></button>
+          </div>
+
+          <!-- Actions: Copy, Download, Clear -->
+          <button onclick="copyMarkdownContent()" class="icon-btn sm" title="Sao chép toàn bộ Markdown">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+          <button onclick="downloadMarkdownFile()" class="icon-btn sm" title="Tải về file .md">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          </button>
+          <button onclick="toggleMarkdownPanel()" class="icon-btn sm" title="Đóng ghi chú" aria-label="Đóng ghi chú"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+        </div>
+      </div>
+
+      <!-- Editor Content Container -->
+      <div id="md-workspace-container" class="flex-1 flex overflow-hidden min-h-0 relative">
+        
+        <!-- Editor Textarea Area -->
+        <div id="md-editor-pane" class="flex-1 flex flex-col h-full min-h-0 min-w-0">
+          <textarea id="md-textarea" spellcheck="false"
+            placeholder="# Bắt đầu ghi chú tại đây...&#10;&#10;Bạn có thể tự do gõ Markdown hoặc bấm 'Chèn vào Markdown' từ bất kỳ câu trả lời nào của AI bên cạnh."
+            class="w-full flex-1 p-4 bg-transparent resize-none focus:outline-none text-xs sm:text-[13px] font-mono leading-relaxed overflow-y-auto"
+            style="color: var(--text-strong)"
+            oninput="handleMarkdownInput()"></textarea>
+        </div>
+
+        <!-- Preview Pane -->
+        <div id="md-preview-pane" class="hidden flex-1 overflow-y-auto p-4 markdown-body text-xs sm:text-[13px] border-l hairline h-full" style="background: var(--panel-2)"></div>
+      </div>
+
+      <!-- Footer / Status Bar -->
+      <div class="px-4 py-2 flex items-center justify-between text-[10px] t-faint shrink-0">
+        <div class="flex items-center gap-3">
+          <span id="md-stat-words">0 từ</span>
+          <span>•</span>
+          <span id="md-stat-chars">0 ký tự</span>
+          <span>•</span>
+          <span id="md-stat-lines">1 dòng</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="md-save-indicator" class="text-emerald-400 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Đã lưu
+          </span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ================= MODAL: ADD SOURCE ================= -->
+  <div id="modal-add-source" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4" onclick="if(event.target===this)closeAddSourceModal()">
+    <div class="overlay-card rounded-[28px] w-full max-w-[640px] max-h-[92vh] flex flex-col overflow-hidden">
+
+      <div class="relative px-7 pt-7 pb-5 shrink-0 overflow-hidden">
+        <div class="absolute -top-16 -right-10 w-56 h-56 rounded-full opacity-30 blur-3xl pointer-events-none" style="background: conic-gradient(from 210deg, #4285f4, #9b72cb, #d96570, #4285f4)"></div>
+        <div class="relative flex items-start justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style="background: var(--accent-bg); color: var(--accent)">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 14v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg>
             </div>
-            <div class="min-w-0">
-              <div class="text-xs font-medium text-zinc-100 leading-snug line-clamp-2">${p.title}</div>
-              <div class="text-[11px] text-zinc-500 font-mono mt-1 flex items-center gap-2">
-                <span>${p.paper_id}</span>
-                <span>•</span>
-                <span>${p.chunk_count} sections</span>
-              </div>
+            <div>
+              <h3 class="text-xl font-medium t-strong leading-tight">Thêm nguồn</h3>
+              <p class="text-[13px] t-muted mt-1">Nạp bài báo vào sổ tay để hỏi đáp và trích dẫn.</p>
             </div>
           </div>
-          <button onclick="event.stopPropagation(); deletePaper('${p.paper_id}')" title="Remove source" class="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-rose-400 p-1 rounded-lg hover:bg-rose-500/10 transition shrink-0">
-            ✕
+          <button onclick="closeAddSourceModal()" class="icon-btn shrink-0" title="Đóng (Esc)">✕</button>
+        </div>
+      </div>
+
+      <div class="px-7 shrink-0">
+        <div class="seg w-full">
+          <button onclick="switchIngestTab('arxiv')" id="btn-ingest-arxiv" class="flex-1 flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M20 20l-3.5-3.5"/></svg>
+            Tìm trên ArXiv
+          </button>
+          <button onclick="switchIngestTab('pdf')" id="btn-ingest-pdf" class="flex-1 flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5zM14 3v5h5"/></svg>
+            Tải PDF lên
           </button>
         </div>
-      `).join('');
-    }
+      </div>
 
-    function inspectSourcePaper(paperId) {
-      const p = globalState.papers.find(x => x.paper_id === paperId);
-      if (!p) return;
-
-      const drawer = document.getElementById('source-drawer');
-      const body = document.getElementById('drawer-body');
-      document.getElementById('drawer-badge').textContent = `Source Guide • ${p.paper_id}`;
-
-      const isArxiv = /^\d{4}\.\d{4,5}$/.test(p.paper_id);
-      const linksHtml = isArxiv
-        ? `<div class="flex gap-3 pt-1">
-             <a href="https://arxiv.org/abs/${p.paper_id}" target="_blank" class="px-3 py-1.5 rounded-full bg-[#282a2c] hover:bg-zinc-700 text-[#a8c7fa] font-medium">ArXiv Abstract ↗</a>
-             <a href="https://arxiv.org/pdf/${p.paper_id}.pdf" target="_blank" class="px-3 py-1.5 rounded-full bg-[#282a2c] hover:bg-zinc-700 text-zinc-200 font-medium">Open PDF ↗</a>
-           </div>`
-        : '';
-
-      const sectionsHtml = p.sections.map(s => `<span class="inline-block px-2.5 py-1 rounded-lg bg-[#282a2c] text-zinc-300 font-mono text-[11px] mr-1.5 mb-1.5">${s}</span>`).join('');
-
-      body.innerHTML = `
-        <div class="space-y-3">
-          <h3 class="text-base font-semibold text-white leading-snug">${p.title}</h3>
-          <div class="text-zinc-400">${p.authors.join(', ') || 'Unknown Authors'}</div>
-          <div class="flex flex-wrap gap-3 text-[11px] font-mono text-zinc-400 pt-1">
-            <span>Published: ${p.published_date}</span>
-            <span>•</span>
-            <span>Citations: ${p.citation_count}</span>
-            <span>•</span>
-            <span>Chunks: ${p.chunk_count}</span>
-          </div>
-          ${linksHtml}
-        </div>
-        ${p.abstract ? `
-          <div class="nb-surface rounded-2xl p-4 space-y-1.5">
-            <div class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Abstract Summary</div>
-            <p class="text-zinc-300 leading-relaxed">${p.abstract}</p>
-          </div>
-        ` : ''}
-        <div class="space-y-2">
-          <div class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Extracted Document Structure (${p.sections.length} Sections)</div>
-          <div>${sectionsHtml}</div>
-        </div>
-      `;
-      drawer.classList.remove('hidden');
-    }
-
-    function render3DGraph() {
-      const elem = document.getElementById('citation-3d-graph');
-      if (!globalState.graph.nodes.length) {
-        elem.innerHTML = `<div class="h-full flex items-center justify-center text-xs text-zinc-500 font-mono">Add sources to visualize your 3D document constellation.</div>`;
-        return;
-      }
-
-      const nodes = globalState.graph.nodes.map(n => ({ ...n }));
-      const links = globalState.graph.edges.map(e => ({
-        source: e.source || e.from,
-        target: e.target || e.to
-      }));
-
-      const width = elem.clientWidth || 900;
-      const height = elem.clientHeight || 620;
-
-      if (!graph3D) {
-        graph3D = ForceGraph3D()(elem)
-          .width(width)
-          .height(height)
-          .backgroundColor('#0b0c0e')
-          .showNavInfo(false)
-          .linkColor(() => 'rgba(148, 163, 184, 0.22)')
-          .linkWidth(0.75)
-          .linkDirectionalParticles(1)
-          .linkDirectionalParticleWidth(1.5)
-          .linkDirectionalParticleSpeed(0.004)
-          .linkDirectionalParticleColor(() => '#a8c7fa')
-          .onNodeClick(node => {
-            stopOrbit();
-            const distance = 88;
-            const distRatio = 1 + distance / Math.hypot(node.x || 1, node.y || 1, node.z || 1);
-            graph3D.cameraPosition(
-              { x: (node.x || 1) * distRatio, y: (node.y || 1) * distRatio, z: (node.z || 1) * distRatio },
-              node,
-              1000
-            );
-            showNodeInspector(node);
-          });
-
-        graph3D.d3Force('charge').strength(-75);
-        graph3D.d3Force('link').distance(52);
-      } else {
-        graph3D.width(width).height(height);
-      }
-
-      // Custom 3D Object: Glowing Sphere + Floating 3D Document Title (SpriteText)
-      graph3D.nodeThreeObject(node => {
-        const group = new THREE.Group();
-
-        const isIngested = node.group === 'ingested';
-        const isShared = node.group === 'shared_ref';
-        const radius = isIngested ? 5.6 : (isShared ? 3.5 : 2.1);
-        const colorHex = isIngested ? 0xa78bfa : (isShared ? 0x38bdf8 : 0x64748b);
-
-        // 1. 3D Sphere Mesh
-        const geo = new THREE.SphereGeometry(radius, 24, 24);
-        const mat = new THREE.MeshLambertMaterial({
-          color: colorHex,
-          transparent: true,
-          opacity: isIngested ? 0.96 : 0.85,
-        });
-        const sphere = new THREE.Mesh(geo, mat);
-        group.add(sphere);
-
-        // Subtle outer halo for ingested library papers
-        if (isIngested) {
-          const haloGeo = new THREE.SphereGeometry(radius * 1.35, 16, 16);
-          const haloMat = new THREE.MeshBasicMaterial({
-            color: 0xa78bfa,
-            transparent: true,
-            opacity: 0.16,
-          });
-          group.add(new THREE.Mesh(haloGeo, haloMat));
-        }
-
-        // 2. Always-Visible 3D Document Name Label
-        if (isIngested || isShared || showAllLabels) {
-          const sprite = new SpriteText(node.label || node.title || node.id);
-          sprite.fontFace = 'Plus Jakarta Sans, Inter, sans-serif';
-          sprite.fontWeight = isIngested ? '600' : '400';
-          sprite.textHeight = isIngested ? 2.9 : (isShared ? 2.1 : 1.65);
-          sprite.color = isIngested ? '#f8fafc' : (isShared ? '#bae6fd' : '#94a3b8');
-          sprite.backgroundColor = isIngested ? 'rgba(24, 24, 27, 0.82)' : 'rgba(15, 23, 42, 0.65)';
-          sprite.padding = isIngested ? [1.2, 2.2] : [0.7, 1.4];
-          sprite.borderRadius = 2.5;
-          sprite.position.set(0, -(radius + (isIngested ? 4.2 : 2.8)), 0);
-          group.add(sprite);
-        }
-
-        return group;
-      });
-
-      graph3D.graphData({ nodes, links });
-      if (isOrbiting) startOrbit();
-    }
-
-    function toggleLabelMode() {
-      showAllLabels = !showAllLabels;
-      const btn = document.getElementById('btn-label-mode');
-      btn.textContent = showAllLabels ? 'Labels: All Titles' : 'Labels: Key Papers';
-      render3DGraph();
-    }
-
-    function showNodeInspector(node) {
-      const box = document.getElementById('graph-node-inspector');
-      box.classList.remove('hidden');
-      const isArxiv = /^\d{4}\.\d{4,5}$/.test(node.id);
-      const actionBtn = node.group === 'ingested'
-        ? `<button onclick="inspectSourcePaper('${node.id}')" class="text-xs px-3 py-1 rounded-full bg-[#a8c7fa] text-[#062e6f] font-semibold">Open Source Guide</button>`
-        : `<a href="https://openalex.org/${node.id}" target="_blank" class="text-xs text-[#38bdf8] hover:underline font-mono">OpenAlex Record ↗</a>`;
-
-      box.innerHTML = `
-        <div class="flex items-start justify-between gap-3">
-          <div class="space-y-1.5">
-            <div class="text-[10px] font-mono uppercase tracking-wider ${node.group === 'ingested' ? 'text-violet-400' : 'text-sky-400'}">
-              ${node.group === 'ingested' ? 'Library Source' : (node.group === 'shared_ref' ? 'Shared Cited Work' : 'Referenced Paper')} • ${node.id}
+      <div class="flex-1 overflow-y-auto px-7 py-6">
+        <div id="panel-ingest-arxiv" class="space-y-5">
+          <div>
+            <div class="field-label">Chủ đề gợi ý</div>
+            <div class="flex flex-wrap gap-2">
+              <button class="topic-chip" onclick="pickPreset(this)" data-q="Agentic Retrieval Augmented Generation GraphRAG">🕸️ Agentic RAG & GraphRAG</button>
+              <button class="topic-chip" onclick="pickPreset(this)" data-q="3D Gaussian Splatting real-time radiance field rendering">🎨 3D Gaussian Splatting</button>
+              <button class="topic-chip" onclick="pickPreset(this)" data-q="Diffusion Policy visuomotor robot manipulation">🦾 Diffusion Policy</button>
+              <button class="topic-chip" onclick="pickPreset(this)" data-q="Vision Language Models multimodal instruction tuning">👁️ Vision-Language</button>
+              <button class="topic-chip" onclick="pickPreset(this)" data-q="Chain of Thought reasoning test-time compute scaling LLMs">🧠 Reasoning LLMs</button>
+              <button class="topic-chip" onclick="pickPreset(this)" data-q="AlphaFold protein structure prediction diffusion">🧬 Protein Folding</button>
             </div>
-            <div class="text-xs font-semibold text-white leading-snug">${node.title}</div>
-            <div class="pt-1 flex items-center gap-3">${actionBtn}</div>
           </div>
-          <button onclick="document.getElementById('graph-node-inspector').classList.add('hidden')" class="text-zinc-400 hover:text-white">✕</button>
-        </div>
-      `;
-    }
 
-    function startOrbit() {
-      stopOrbit();
-      isOrbiting = true;
-      const btn = document.getElementById('btn-orbit');
-      if (btn) btn.textContent = 'Auto-Orbit: ON';
-      const distance = 235;
-      orbitTimer = setInterval(() => {
-        if (!graph3D) return;
-        orbitAngle += Math.PI / 520;
-        graph3D.cameraPosition({
-          x: distance * Math.sin(orbitAngle),
-          z: distance * Math.cos(orbitAngle)
-        });
-      }, 35);
-    }
-
-    function stopOrbit() {
-      if (orbitTimer) {
-        clearInterval(orbitTimer);
-        orbitTimer = null;
-      }
-      isOrbiting = false;
-      const btn = document.getElementById('btn-orbit');
-      if (btn) btn.textContent = 'Auto-Orbit: OFF';
-    }
-
-    function toggleGraphOrbit() {
-      if (isOrbiting) stopOrbit();
-      else startOrbit();
-    }
-
-    function resetGraphCamera() {
-      if (!graph3D) return;
-      graph3D.cameraPosition({ x: 0, y: 0, z: 235 }, { x: 0, y: 0, z: 0 }, 900);
-    }
-
-    async function ingestFromArxiv() {
-      const query = document.getElementById('arxiv-query').value.trim();
-      const maxPapers = parseInt(document.getElementById('arxiv-max').value || '2', 10);
-      const msg = document.getElementById('ingest-msg');
-      const btn = document.getElementById('btn-do-ingest');
-      if (!query) return;
-
-      btn.disabled = true;
-      btn.textContent = 'Fetching & parsing PDFs...';
-      msg.className = 'text-xs font-mono text-zinc-300 pt-1';
-      msg.textContent = `Searching ArXiv & OpenAlex for '${query}'...`;
-      msg.classList.remove('hidden');
-
-      try {
-        const res = await fetch('/api/ingest', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, max_papers: maxPapers })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Ingestion failed');
-        msg.className = 'text-xs font-mono text-emerald-400 pt-1';
-        msg.textContent = `✓ Added ${data.papers_ingested} paper(s) (${data.chunks_indexed} sections)`;
-        await loadStats();
-        setTimeout(() => closeAddSourceModal(), 900);
-      } catch (err) {
-        msg.className = 'text-xs font-mono text-rose-400 pt-1';
-        msg.textContent = `Error: ${err.message}`;
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Fetch & Index into Notebook';
-      }
-    }
-
-    async function uploadLocalPdf() {
-      const fileInput = document.getElementById('pdf-file');
-      const titleInput = document.getElementById('pdf-title');
-      const msg = document.getElementById('ingest-msg');
-      const btn = document.getElementById('btn-do-upload');
-      if (!fileInput.files.length) return;
-
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
-      if (titleInput.value.trim()) formData.append('title', titleInput.value.trim());
-
-      btn.disabled = true;
-      btn.textContent = 'Parsing PDF...';
-      msg.className = 'text-xs font-mono text-zinc-300 pt-1';
-      msg.textContent = 'Running layout parser & RapidOCR...';
-      msg.classList.remove('hidden');
-
-      try {
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Upload failed');
-        msg.className = 'text-xs font-mono text-emerald-400 pt-1';
-        msg.textContent = `✓ Added '${data.title}' (${data.chunks_indexed} sections)`;
-        fileInput.value = '';
-        titleInput.value = '';
-        await loadStats();
-        setTimeout(() => closeAddSourceModal(), 900);
-      } catch (err) {
-        msg.className = 'text-xs font-mono text-rose-400 pt-1';
-        msg.textContent = `Error: ${err.message}`;
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Parse with RapidOCR & Index';
-      }
-    }
-
-    async function deletePaper(paperId) {
-      await fetch(`/api/papers/${encodeURIComponent(paperId)}`, { method: 'DELETE' });
-      await loadStats();
-      if (!document.getElementById('view-panel-graph').classList.contains('hidden')) {
-        render3DGraph();
-      }
-    }
-
-    function clearConversation() {
-      document.getElementById('qa-results').innerHTML = '';
-    }
-
-    async function submitQuestion(e) {
-      e.preventDefault();
-      const input = document.getElementById('question-input');
-      const question = input.value.trim();
-      if (!question) return;
-
-      const loading = document.getElementById('ask-loading');
-      const btn = document.getElementById('btn-ask');
-      loading.classList.remove('hidden');
-      btn.disabled = true;
-
-      try {
-        const payload = {
-          question,
-          search_mode: document.getElementById('cfg-search-mode').value,
-          llm_provider: document.getElementById('cfg-provider').value,
-          llm_model: document.getElementById('cfg-model').value,
-          llm_base_url: document.getElementById('cfg-base-url').value,
-          api_key: document.getElementById('cfg-api-key').value
-        };
-        const res = await fetch('/api/ask', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Synthesis failed');
-        input.value = '';
-        appendNotebookResponse(data);
-      } catch (err) {
-        alert('Error: ' + err.message);
-      } finally {
-        loading.classList.add('hidden');
-        btn.disabled = false;
-      }
-    }
-
-    function formatInlineCitations(htmlStr, citations) {
-      // Transform inline [paper_id: Section, p.X] brackets into clickable NotebookLM citation chips
-      return htmlStr.replace(/\[([0-9]{4}\.[0-9]{4,5}|[A-Za-z0-9_.\-]+):\s*([^\]]+)\]/g, (match, pid, sec) => {
-        return `<span onclick="inspectSourcePaper('${pid}')" class="cite-chip" title="Click to inspect source ${pid}: ${sec}">📄 ${pid} • ${sec}</span>`;
-      });
-    }
-
-    function appendNotebookResponse(data) {
-      const container = document.getElementById('qa-results');
-      const card = document.createElement('div');
-      card.className = 'nb-surface rounded-3xl p-6 space-y-4 shadow-lg';
-
-      const groundedPill = data.is_grounded
-        ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">✓ Verified citations</span>`
-        : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/25">Source excerpts</span>`;
-
-      const renderedMd = formatInlineCitations(marked.parse(data.answer || ''), data.citations || []);
-
-      const citationsListHtml = (data.citations || []).map((c, idx) => `
-        <div onclick="inspectSourcePaper('${c.paper_id}')" class="bg-[#1e1f20] hover:bg-[#252729] border border-white/[0.06] rounded-2xl p-3.5 space-y-1.5 cursor-pointer transition">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="text-xs font-medium text-[#a8c7fa] font-mono">#${idx + 1} ${c.citation_tag}</span>
-            <span class="text-[11px] text-zinc-500 font-mono">score: ${c.rerank_score}</span>
+          <div>
+            <label class="field-label" for="arxiv-query">Từ khóa hoặc ArXiv ID</label>
+            <div class="relative">
+              <svg class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 t-faint pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M20 20l-3.5-3.5"/></svg>
+              <input id="arxiv-query" type="text" autocomplete="off" placeholder="VD: GraphRAG, 3D Gaussian Splatting, 2305.14314"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();ingestFromArxiv();}"
+                     class="field-lg !pl-11" />
+            </div>
           </div>
-          <div class="text-xs font-medium text-zinc-200">${c.paper_title}</div>
-          <div class="text-xs text-zinc-400 leading-relaxed line-clamp-3">${c.content}</div>
-        </div>
-      `).join('');
 
-      card.innerHTML = `
-        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] pb-3.5">
-          <h3 class="text-base font-semibold text-white">${data.question}</h3>
-          ${groundedPill}
-        </div>
-        <div class="markdown-body text-sm">${renderedMd}</div>
-        <div class="pt-2 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-2">
-          <details class="w-full">
-            <summary class="text-xs font-medium text-[#a8c7fa] cursor-pointer select-none">
-              View ${data.citations.length} cited source passages
-            </summary>
-            <div class="mt-3 grid grid-cols-1 gap-2.5">${citationsListHtml}</div>
-          </details>
-        </div>
-      `;
-      container.appendChild(card);
-      card.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
+          <div class="flex items-center justify-between surface px-4 py-3">
+            <div>
+              <div class="text-[13px] font-medium t-strong">Số bài báo cần tải</div>
+              <div class="text-[11px] t-faint mt-0.5">Tối đa 8 bài mỗi lần</div>
+            </div>
+            <div class="stepper">
+              <button type="button" onclick="stepPapers(-1)" aria-label="Giảm">−</button>
+              <input id="arxiv-max" type="number" min="1" max="8" value="2" class="font-mono" />
+              <button type="button" onclick="stepPapers(1)" aria-label="Tăng">+</button>
+            </div>
+          </div>
 
-    window.addEventListener('resize', () => {
-      if (graph3D) {
-        const elem = document.getElementById('citation-3d-graph');
-        if (elem && elem.clientWidth) {
-          graph3D.width(elem.clientWidth).height(elem.clientHeight);
-        }
-      }
-    });
+          <button onclick="ingestFromArxiv()" id="btn-do-ingest" class="btn-fill w-full !py-3 !text-sm">Tải & lập chỉ mục</button>
+        </div>
 
-    loadStats();
-  </script>
+        <div id="panel-ingest-pdf" class="space-y-5 hidden">
+          <label id="drop-zone" for="pdf-file" class="drop-zone">
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center" style="background: var(--accent-bg); color: var(--accent)">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.9-7.9A5 5 0 0116 7a4.5 4.5 0 011 8.9M12 12v8m0-8l-3 3m3-3l3 3"/></svg>
+            </div>
+            <div class="text-sm font-medium t-strong">Kéo thả file PDF vào đây</div>
+            <div class="text-xs t-muted">hoặc <span class="t-accent underline">chọn từ máy tính</span></div>
+            <div id="pdf-file-name" class="hidden mt-1 chip !text-xs max-w-full"></div>
+            <input id="pdf-file" type="file" accept=".pdf" class="hidden" onchange="updateFileName()" />
+          </label>
+
+          <div>
+            <label class="field-label" for="pdf-title">Tiêu đề tùy chỉnh <span class="t-faint font-normal">(không bắt buộc)</span></label>
+            <input id="pdf-title" type="text" placeholder="Tự nhận diện từ PDF nếu để trống" class="field-lg" />
+          </div>
+
+          <button onclick="uploadLocalPdf()" id="btn-do-upload" class="btn-fill w-full !py-3 !text-sm">Phân tích bằng RapidOCR & lập chỉ mục</button>
+        </div>
+
+        <div id="ingest-msg" class="hidden mt-4 text-xs font-mono rounded-xl px-4 py-3 surface"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: SETTINGS ================= -->
+  <div id="modal-settings" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4" onclick="if(event.target===this)closeSettingsModal()">
+    <div class="overlay-card rounded-[28px] w-full max-w-[600px] max-h-[92vh] flex flex-col overflow-hidden">
+
+      <div class="px-7 pt-7 pb-4 flex items-start justify-between gap-4 shrink-0">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style="background: var(--accent-bg); color: var(--accent)">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+          </div>
+          <div>
+            <h3 class="text-xl font-medium t-strong leading-tight">Cài đặt</h3>
+            <p class="text-[13px] t-muted mt-1">Truy xuất, mô hình ngôn ngữ và giao diện.</p>
+          </div>
+        </div>
+        <button onclick="closeSettingsModal()" class="icon-btn shrink-0" title="Đóng (Esc)">✕</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-7 pb-2 space-y-7">
+        <section>
+          <div class="section-title">Truy xuất</div>
+          <input type="hidden" id="cfg-search-mode" value="hybrid" />
+          <div class="space-y-2">
+            <button type="button" class="opt-card" data-retrieval="hybrid" onclick="setRetrieval('hybrid')">
+              <span class="opt-radio"></span>
+              <span class="min-w-0 text-left">
+                <span class="block text-[13px] font-medium t-strong">Hybrid <span class="chip !py-0 !px-2 !text-[10px] ml-1" style="color: var(--accent)">Khuyên dùng</span></span>
+                <span class="block text-[11.5px] t-muted mt-0.5">Qdrant Dense + BM25 + CrossEncoder rerank</span>
+              </span>
+            </button>
+            <button type="button" class="opt-card" data-retrieval="dense" onclick="setRetrieval('dense')">
+              <span class="opt-radio"></span>
+              <span class="min-w-0 text-left">
+                <span class="block text-[13px] font-medium t-strong">Dense</span>
+                <span class="block text-[11.5px] t-muted mt-0.5">Chỉ vector ngữ nghĩa (BGE-Small ONNX)</span>
+              </span>
+            </button>
+            <button type="button" class="opt-card" data-retrieval="sparse" onclick="setRetrieval('sparse')">
+              <span class="opt-radio"></span>
+              <span class="min-w-0 text-left">
+                <span class="block text-[13px] font-medium t-strong">Sparse</span>
+                <span class="block text-[11.5px] t-muted mt-0.5">Chỉ từ khóa (BM25Okapi)</span>
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-title">Mô hình ngôn ngữ</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="field-label" for="cfg-provider">Nhà cung cấp</label>
+              <select id="cfg-provider" onchange="onProviderChange()" class="field-lg">
+                <option value="gemini">Google Gemini</option>
+                <option value="openai">OpenAI</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="groq">Groq</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="ollama">Ollama / vLLM</option>
+                <option value="custom">Custom endpoint</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="cfg-model">Tên model</label>
+              <input id="cfg-model" type="text" value="gemini-2.5-flash" class="field-lg font-mono" />
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="field-label" for="cfg-base-url">Base URL <span class="t-faint font-normal">(chỉ khi chọn Custom)</span></label>
+            <input id="cfg-base-url" type="text" placeholder="VD: http://localhost:11434/v1" class="field-lg font-mono" />
+          </div>
+          <div class="mt-3">
+            <label class="field-label" for="cfg-api-key">API Key <span class="t-faint font-normal">(ghi đè khóa trong .env)</span></label>
+            <div class="relative">
+              <input id="cfg-api-key" type="password" placeholder="Để trống để dùng khóa trong .env" autocomplete="off" class="field-lg !pr-12 font-mono" />
+              <button type="button" onclick="toggleApiKey()" class="icon-btn sm absolute right-2 top-1/2 -translate-y-1/2" title="Hiện/ẩn khóa">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-title">Suy luận</div>
+          <input type="hidden" id="cfg-reasoning" value="medium" />
+          <div class="seg w-full">
+            <button type="button" class="flex-1" data-reason="off" onclick="setReasoning('off')">Tắt</button>
+            <button type="button" class="flex-1" data-reason="low" onclick="setReasoning('low')">Thấp</button>
+            <button type="button" class="flex-1" data-reason="medium" onclick="setReasoning('medium')">Vừa</button>
+            <button type="button" class="flex-1" data-reason="high" onclick="setReasoning('high')">Cao</button>
+          </div>
+        </section>
+
+        <section class="pb-2">
+          <div class="section-title">Giao diện</div>
+          <input type="hidden" id="cfg-language" value="vi" />
+          <div>
+            <div class="field-label">Chủ đề màu</div>
+            <div class="seg w-full">
+              <button type="button" class="flex-1" data-themeopt="light" onclick="applyTheme('light')">Sáng</button>
+              <button type="button" class="flex-1" data-themeopt="dark" onclick="applyTheme('dark')">Tối</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="px-7 py-4 border-t hairline flex items-center justify-between shrink-0" style="background: var(--panel-2)">
+        <span class="text-[11px] t-faint">Cài đặt áp dụng cho các câu hỏi tiếp theo.</span>
+        <button onclick="closeSettingsModal()" class="btn-fill !px-7 !py-2.5">Xong</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/state.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/i18n.js"></script>
+  <script src="/static/js/theme.js"></script>
+  <script src="/static/js/ui.js"></script>
+  <script src="/static/js/sources.js"></script>
+  <script src="/static/js/chat.js"></script>
+  <script src="/static/js/markdown-editor.js"></script>
+  <script src="/static/js/main.js"></script>
 </body>
 </html>

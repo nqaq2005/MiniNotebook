@@ -1,0 +1,44 @@
+/* ===== Reset, typography, surfaces ===== */
+html, body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Google Sans Flex', 'Google Sans', 'Plus Jakarta Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .2s ease, color .2s ease;
+}
+
+/* ===== Surfaces ===== */
+.panel {
+  background: var(--panel);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.surface {
+  background: var(--surface);
+  border-radius: 16px;
+}
+
+.hairline {
+  border-color: var(--border) !important;
+}
+
+.t-strong {
+  color: var(--text-strong);
+}
+
+.t-muted {
+  color: var(--muted);
+}
+
+.t-faint {
+  color: var(--faint);
+}
+
+.t-accent {
+  color: var(--accent);
+}

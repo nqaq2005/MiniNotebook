@@ -8,7 +8,9 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.agent.nodes import LLMClient
@@ -25,6 +27,14 @@ app = FastAPI(
     title="ScholarRAG API",
     description="NotebookLM-Style AI Research Assistant & 3D Citation Graph",
     version="0.3.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 vector_store = HybridVectorStore()
@@ -49,6 +59,9 @@ def get_retriever(search_mode: str) -> HybridGraphRetriever:
     return _retrievers[mode]
 
 HTML_PATH = Path(__file__).resolve().parent / "index.html"
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 class IngestRequest(BaseModel):
@@ -64,6 +77,8 @@ class AskRequest(BaseModel):
     llm_model: Optional[str] = None
     llm_base_url: Optional[str] = None
     api_key: Optional[str] = None
+    reasoning_effort: Optional[str] = None
+    language: Optional[str] = "vi"
 
 
 def _truncate_title(title: str, max_len: int = 38) -> str:
@@ -216,6 +231,8 @@ def get_stats():
             "llm_provider": settings.llm_provider,
             "llm_model": settings.llm_model,
             "llm_base_url": settings.llm_base_url,
+            "llm_reasoning_effort": settings.llm_reasoning_effort,
+            "llm_language": getattr(settings, "llm_language", "vi"),
             "llm_configured": llm_check.is_configured,
             "embedder": type(vector_store.embedder).__name__,
             "embedding_model": settings.embedding_model,
@@ -231,9 +248,15 @@ def get_stats():
 def ingest_papers(req: IngestRequest):
     query = req.query.strip()
     if not query:
-        raise HTTPException(status_code=400, detail="Query cannot be empty.")
-    stats = pipeline.ingest_topic(query=query, max_papers=max(1, min(req.max_papers, 10)))
-    return stats
+        raise HTTPException(status_code=400, detail="Truy vấn tìm kiếm không được để trống.")
+    try:
+        stats = pipeline.ingest_topic(query=query, max_papers=max(1, min(req.max_papers, 10)))
+        return stats
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Lỗi tải hoặc lập chỉ mục từ ArXiv: {str(e)}",
+        )
 
 
 @app.post("/api/upload")
@@ -267,6 +290,7 @@ def _build_agent(req: "AskRequest") -> LiteratureReviewAgent:
         model_name=req.llm_model if req.llm_model else None,
         provider=req.llm_provider if req.llm_provider else None,
         base_url=req.llm_base_url if req.llm_base_url is not None else None,
+        reasoning_effort=req.reasoning_effort if req.reasoning_effort else None,
     )
     return LiteratureReviewAgent(retriever=get_retriever(req.search_mode), llm_client=llm_client)
 
@@ -278,7 +302,8 @@ def ask_question(req: AskRequest):
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
-    resp = _build_agent(req).run(question)
+    lang = req.language or getattr(settings, "llm_language", "vi")
+    resp = _build_agent(req).run(question, language=lang)
     return {
         "question": resp.question,
         "sub_queries": resp.sub_queries,
@@ -301,10 +326,11 @@ def ask_question_stream(req: AskRequest):
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
     agent = _build_agent(req)
+    lang = req.language or getattr(settings, "llm_language", "vi")
 
     def event_lines():
         try:
-            for event in agent.run_stream(question):
+            for event in agent.run_stream(question, language=lang):
                 if event.get("type") == "done":
                     t = event.get("timings", {})
                     print(

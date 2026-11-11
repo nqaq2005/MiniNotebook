@@ -1,5 +1,16 @@
+import os
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# Ensure localhost and 127.0.0.1 are bypassed by system proxies (prevents 403 on local Qdrant/Ollama)
+for _var in ("NO_PROXY", "no_proxy"):
+    _cur = os.environ.get(_var, "")
+    if _cur:
+        if "localhost" not in _cur:
+            os.environ[_var] = f"{_cur},localhost,127.0.0.1"
+    else:
+        os.environ[_var] = "localhost,127.0.0.1"
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,6 +31,10 @@ class Settings(BaseSettings):
     llm_model: str = "gemini-2.5-flash"
     llm_base_url: str = ""
     llm_timeout_seconds: float = 300.0
+    # reasoning_effort for thinking models: "low", "medium", "high", or "off"
+    llm_reasoning_effort: str = "medium"
+    # Response language: "vi" (Tiếng Việt) or "en" (English)
+    llm_language: str = "vi"
     # 0 = do not send max_tokens (let the server decide)
     llm_max_tokens: int = 0
     # Prompt budget: fewer / shorter passages => faster prefill & time-to-first-token
@@ -47,7 +62,6 @@ class Settings(BaseSettings):
         env_file=str(BASE_DIR / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
-        reasoning_effort="medium",
     )
 
     def ensure_dirs(self) -> None:

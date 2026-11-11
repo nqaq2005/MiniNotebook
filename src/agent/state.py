@@ -6,6 +6,7 @@ class ResearchAgentState(TypedDict, total=False):
     """State dictionary passed across nodes in the Agentic Literature Review workflow."""
 
     question: str
+    language: str
     sub_queries: List[str]
     retrieved_passages: List[RetrievedPassage]
     related_papers_from_graph: List[str]

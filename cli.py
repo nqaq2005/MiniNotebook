@@ -16,6 +16,7 @@ def build_components(
     provider: Optional[str] = None,
     base_url: Optional[str] = None,
     model_name: Optional[str] = None,
+    reasoning_effort: Optional[str] = None,
 ):
     vector_store = HybridVectorStore()
     citation_graph = CitationGraphStore()
@@ -32,6 +33,7 @@ def build_components(
         provider=provider,
         base_url=base_url,
         model_name=model_name,
+        reasoning_effort=reasoning_effort,
     )
     agent = LiteratureReviewAgent(retriever=retriever, llm_client=llm_client)
     return vector_store, citation_graph, pipeline, agent
@@ -50,6 +52,10 @@ def main():
     subparsers.add_parser(
         "reindex",
         help="Re-embed all existing chunks in Qdrant with the active neural BGE Embedding model",
+    )
+    subparsers.add_parser(
+        "sync-local",
+        help="Scan data/raw_pdfs and automatically ingest all unindexed PDF files into Qdrant & Citation Graph",
     )
 
     ask_parser = subparsers.add_parser("ask", help="Ask a literature review question")
@@ -76,6 +82,18 @@ def main():
         default=None,
         help="Override LLM model name (e.g. gemini-2.5-flash, qwen2.5:7b)",
     )
+    ask_parser.add_argument(
+        "--reasoning-effort",
+        default=None,
+        choices=["low", "medium", "high", "off"],
+        help="Reasoning/thinking effort level (default: medium)",
+    )
+    ask_parser.add_argument(
+        "--language",
+        default="vi",
+        choices=["vi", "en"],
+        help="Response language: 'vi' (Tiếng Việt) or 'en' (English)",
+    )
 
     subparsers.add_parser("stats", help="Show Vector DB and Citation Graph statistics")
     subparsers.add_parser("eval", help="Run RAG evaluation & ablation benchmark (Dense vs BM25 vs Hybrid)")
@@ -85,12 +103,14 @@ def main():
     provider = getattr(args, "provider", None)
     base_url = getattr(args, "base_url", None)
     model_name = getattr(args, "model", None)
+    reasoning_effort = getattr(args, "reasoning_effort", None)
 
     vector_store, citation_graph, pipeline, agent = build_components(
         search_mode=mode,
         provider=provider,
         base_url=base_url,
         model_name=model_name,
+        reasoning_effort=reasoning_effort,
     )
 
     if args.command == "ingest":
@@ -104,8 +124,32 @@ def main():
         count = vector_store.reindex_all()
         print(f"[+] Successfully re-embedded {count} chunks!")
 
+    elif args.command == "sync-local":
+        from pathlib import Path
+        pdf_dir = Path("data/raw_pdfs")
+        ingested_ids = {
+            n for n, attr in citation_graph.graph.nodes(data=True) if attr.get("ingested")
+        }
+        candidates = [
+            p for p in sorted(pdf_dir.glob("*.pdf"))
+            if p.stem.replace(" ", "_") not in ingested_ids
+        ]
+        if not candidates:
+            print("[*] All local PDFs in data/raw_pdfs are already indexed in Qdrant & Citation Graph!")
+        else:
+            print(f"[*] Found {len(candidates)} unindexed PDF files. Syncing to Qdrant...")
+            total_chunks = 0
+            for pdf in candidates:
+                print(f"  -> Indexing '{pdf.name}'...")
+                res = pipeline.ingest_local_pdf(pdf)
+                n_chunks = res.get("chunks_indexed", 0)
+                total_chunks += n_chunks
+                print(f"     ✓ Added {res['paper_id']} ({n_chunks} chunks)")
+            print(f"[+] Successfully indexed {len(candidates)} papers ({total_chunks} chunks) into Qdrant!")
+
     elif args.command == "ask":
-        response = agent.run(args.question)
+        lang = getattr(args, "language", "vi")
+        response = agent.run(args.question, language=lang)
         print("\n=== DECOMPOSED SUB-QUERIES ===")
         for sq in response.sub_queries:
             print(f" - {sq}")

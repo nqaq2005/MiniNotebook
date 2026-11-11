@@ -18,16 +18,32 @@ def test_fastapi_endpoints():
     assert "metrics" in data
     assert "papers" in data
     assert "graph" in data
+    assert data["config"]["llm_reasoning_effort"] == "medium"
+    assert data["config"]["llm_language"] == "vi"
 
-    # 3. Ask API
+    # 3. Ask API (Vietnamese by default or explicit)
     ask_resp = client.post(
         "/api/ask",
         json={
             "question": "What are the main findings of the indexed papers?",
             "search_mode": "hybrid",
+            "reasoning_effort": "medium",
+            "language": "vi",
         },
     )
     assert ask_resp.status_code == 200
     ask_data = ask_resp.json()
     assert "answer" in ask_data
     assert "citations" in ask_data
+
+    # 4. Ask API (English)
+    ask_en = client.post(
+        "/api/ask",
+        json={
+            "question": "Compare the core methodologies",
+            "search_mode": "hybrid",
+            "language": "en",
+        },
+    )
+    assert ask_en.status_code == 200
+    assert "answer" in ask_en.json()
