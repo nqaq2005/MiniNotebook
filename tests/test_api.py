@@ -9,7 +9,12 @@ def test_fastapi_endpoints():
     # 1. Serve HTML UI
     ui_resp = client.get("/")
     assert ui_resp.status_code == 200
-    assert "ScholarRAG" in ui_resp.text
+    assert "MiniNotebook" in ui_resp.text
+
+    # 1b. Healthz check
+    health_resp = client.get("/healthz")
+    assert health_resp.status_code == 200
+    assert health_resp.json() == {"status": "ok"}
 
     # 2. Stats API
     stats_resp = client.get("/api/stats")
@@ -18,8 +23,9 @@ def test_fastapi_endpoints():
     assert "metrics" in data
     assert "papers" in data
     assert "graph" in data
-    assert data["config"]["llm_reasoning_effort"] == "medium"
-    assert data["config"]["llm_language"] == "vi"
+    from src.config import settings
+    assert data["config"]["llm_reasoning_effort"] == settings.llm_reasoning_effort
+    assert data["config"]["llm_language"] == getattr(settings, "llm_language", "vi")
 
     # 3. Ask API (Vietnamese by default or explicit)
     ask_resp = client.post(
@@ -43,7 +49,16 @@ def test_fastapi_endpoints():
             "question": "Compare the core methodologies",
             "search_mode": "hybrid",
             "language": "en",
+            "paper_id_filter": "non_existent_paper_id",
         },
     )
     assert ask_en.status_code == 200
     assert "answer" in ask_en.json()
+
+    # 5. Security: Upload rejection for invalid PDF signature (SEC-05)
+    upload_fake = client.post(
+        "/api/upload",
+        files={"file": ("fake.pdf", b"This is not a real PDF file", "application/pdf")},
+    )
+    assert upload_fake.status_code == 400
+    assert "Invalid PDF" in upload_fake.json()["detail"]

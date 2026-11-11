@@ -40,7 +40,7 @@
 }
 #markdown-panel #md-textarea {
   padding: 28px clamp(18px, 5%, 42px);
-  font-family: 'Google Sans Flex', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.85;
   letter-spacing: .005em;

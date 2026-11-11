@@ -1,7 +1,7 @@
 [project]
-name = "scholarrag"
+name = "mininotebook"
 version = "0.2.0"
-description = "ScholarRAG: AI Literature Review & Citation Graph Assistant using Section-Aware Hybrid GraphRAG"
+description = "MiniNotebook: AI Literature Review & Research Assistant using Section-Aware Hybrid RAG"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -17,14 +17,12 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "networkx>=3.3",
     "fastembed>=0.3.6",
-    "sentence-transformers>=3.0.0",
     "langgraph>=0.2.0",
     "langchain-core>=0.3.0",
     "langchain-google-genai>=2.0.0",
     "fastapi>=0.112.0",
     "uvicorn>=0.30.0",
     "python-multipart>=0.0.9",
-    "streamlit>=1.38.0",
 ]
 
 [project.optional-dependencies]

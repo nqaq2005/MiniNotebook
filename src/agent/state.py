@@ -1,4 +1,4 @@
-from typing import List, TypedDict
+from typing import List, Optional, TypedDict
 from src.models.schemas import RetrievedPassage
 
 
@@ -7,6 +7,7 @@ class ResearchAgentState(TypedDict, total=False):
 
     question: str
     language: str
+    paper_id_filter: Optional[str]
     sub_queries: List[str]
     retrieved_passages: List[RetrievedPassage]
     related_papers_from_graph: List[str]
@@ -14,3 +15,6 @@ class ResearchAgentState(TypedDict, total=False):
     is_grounded: bool
     grounding_score: float
     verification_notes: str
+    is_partial: bool
+    ttft_ms: int
+    llm_ms: int

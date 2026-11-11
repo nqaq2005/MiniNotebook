@@ -18,13 +18,13 @@ function setAskButtonMode(streaming) {
     : `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5l7 7-7 7"/></svg>`;
 }
 
-// [paper_id: Section, p.X] -> numbered NotebookLM-style citation chip
+// [paper_id: Section, p.X] -> numbered NotebookLM-style citation chip (SEC-06: data attribute instead of inline onclick)
 function formatInlineCitations(htmlStr) {
   const papers = (window.globalState && window.globalState.papers) || [];
   return htmlStr.replace(/\[([0-9]{4}\.[0-9]{4,5}|[A-Za-z0-9_.\-]+):\s*([^\]]+)\]/g, (match, pid, sec) => {
     const idx = papers.findIndex(p => p.paper_id === pid);
     const label = idx >= 0 ? String(idx + 1) : escapeHtml(pid);
-    return `<span onclick="inspectSourcePaper('${escapeAttr(pid)}')" class="cite-chip" title="${escapeHtml(pid)} • ${escapeHtml(sec)}">${label}</span>`;
+    return `<span data-paper-id="${escapeAttr(pid)}" class="cite-chip cursor-pointer" title="${escapeHtml(pid)} • ${escapeHtml(sec)}">${label}</span>`;
   });
 }
 
@@ -134,11 +134,24 @@ function createStreamingCard(question) {
   container.appendChild(card);
   card.scrollIntoView({ behavior: 'smooth', block: 'end' });
 
+  // SEC-06: Delegated click handler for citation chips and source cards (no inline onclick)
+  card.addEventListener('click', (e) => {
+    const target = e.target.closest('[data-paper-id]');
+    if (target) {
+      const pid = target.getAttribute('data-paper-id');
+      if (pid && typeof inspectSourcePaper === 'function') {
+        inspectSourcePaper(pid);
+      }
+    }
+  });
+
   const $ = role => card.querySelector(`[data-role="${role}"]`);
   const scrollArea = document.getElementById('chat-scroll-area');
   let answerText = '';
   let thinkingText = '';
   let renderPending = false;
+  let lastRenderTime = 0;
+  let renderTimer = null;
   let gotFirstToken = false;
   let retrievalMs = null;
   let hadError = false;
@@ -147,17 +160,26 @@ function createStreamingCard(question) {
 
   const nearBottom = () => scrollArea ? (scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight < 160) : false;
 
-  function scheduleRender() {
-    if (renderPending) return;
+  // PERF-05: Throttle markdown parsing & DOMPurify to max once every 75ms during streaming
+  function scheduleRender(immediate = false) {
+    if (renderPending && !immediate) return;
+    const now = performance.now();
+    const delay = immediate ? 0 : Math.max(0, 75 - (now - lastRenderTime));
+
+    if (renderTimer) clearTimeout(renderTimer);
     renderPending = true;
-    requestAnimationFrame(() => {
-      renderPending = false;
-      const stick = nearBottom();
-      $('answer').innerHTML = formatInlineCitations(renderMarkdown(answerText)) +
-        '<span class="inline-block w-1.5 h-4 align-middle animate-pulse ml-0.5" style="background: var(--accent)"></span>';
-      if (thinkingText) $('thinking').textContent = thinkingText;
-      if (stick && scrollArea) scrollArea.scrollTop = scrollArea.scrollHeight;
-    });
+
+    renderTimer = setTimeout(() => {
+      requestAnimationFrame(() => {
+        renderPending = false;
+        lastRenderTime = performance.now();
+        const stick = nearBottom();
+        $('answer').innerHTML = formatInlineCitations(renderMarkdown(answerText)) +
+          '<span class="inline-block w-1.5 h-4 align-middle animate-pulse ml-0.5" style="background: var(--accent)"></span>';
+        if (thinkingText) $('thinking').textContent = thinkingText;
+        if (stick && scrollArea) scrollArea.scrollTop = scrollArea.scrollHeight;
+      });
+    }, delay);
   }
 
   function setBadge(text, color) {
@@ -181,7 +203,7 @@ function createStreamingCard(question) {
       ? `View ${count} source ${count === 1 ? 'excerpt' : 'excerpts'}`
       : `Xem ${count} đoạn trích nguồn`;
     $('sources').innerHTML = citations.map((c, idx) => `
-      <div onclick="inspectSourcePaper('${escapeAttr(c.paper_id)}')" class="surface p-3.5 space-y-1.5 cursor-pointer transition hover:opacity-90" style="border:1px solid var(--border)">
+      <div data-paper-id="${escapeAttr(c.paper_id)}" class="surface p-3.5 space-y-1.5 cursor-pointer transition hover:opacity-90" style="border:1px solid var(--border)">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <span class="text-xs font-medium t-accent font-mono">#${idx + 1} ${escapeHtml(c.citation_tag)}</span>
           <span class="text-[11px] t-faint font-mono">score: ${c.rerank_score}</span>
@@ -279,7 +301,7 @@ function createStreamingCard(question) {
     stopped() {
       setBadge(t('Đã dừng'), 'var(--muted)');
       const elapsed = Math.round(performance.now() - tStart);
-      const stoppedLabel = window.currentLanguage === 'en' ? 'stopped after' : 'đã dừng sau';
+      const stoppedLabel = t('đã dừng sau');
       $('timings').textContent = `${stoppedLabel} ${fmtMs(elapsed)}` + (tFirst ? ` • first token ${fmtMs(Math.round(tFirst - tStart))}` : '');
     },
     finish() {

@@ -17,8 +17,11 @@ class ArxivFetcher:
     """
 
     OPENALEX_API_URL = "https://api.openalex.org/works"
-    ARXIV_ID_REGEX = re.compile(r"^(?:https?://arxiv\.org/(?:abs|pdf)/)?(\d{4}\.\d{4,5})(?:v\d+)?(?:\.pdf)?$")
-    USER_AGENT = "PaperScholarRAG/0.1 (mailto:research-assistant@example.org)"
+    ARXIV_ID_REGEX = re.compile(
+        r"^(?:https?://(?:export\.)?arxiv\.org/(?:abs|pdf)/)?((?:\d{4}\.\d{4,5})|(?:[a-zA-Z\-]+/\d{7}))(?:v\d+)?(?:\.pdf)?$",
+        re.IGNORECASE,
+    )
+    USER_AGENT = "MiniNotebook/0.1 (mailto:research-assistant@example.org)"
 
     def __init__(self, download_dir: Optional[Path] = None):
         self.download_dir = download_dir or settings.raw_pdf_dir
@@ -26,12 +29,13 @@ class ArxivFetcher:
 
     @staticmethod
     def normalize_arxiv_id(raw_id: str) -> str:
-        """Strip URL prefix and version suffix (e.g., 'https://arxiv.org/abs/2305.14314v2' -> '2305.14314')."""
-        cleaned = raw_id.strip().split("/")[-1]
-        if cleaned.endswith(".pdf"):
+        """Strip URL prefix and version suffix (e.g., 'https://arxiv.org/abs/2305.14314v2' -> '2305.14314', 'hep-th/9901001v1' -> 'hep-th/9901001')."""
+        cleaned = raw_id.strip()
+        cleaned = re.sub(r"^https?://(?:export\.)?arxiv\.org/(?:abs|pdf)/", "", cleaned, flags=re.IGNORECASE)
+        if cleaned.lower().endswith(".pdf"):
             cleaned = cleaned[:-4]
         cleaned = re.sub(r"v\d+$", "", cleaned)
-        return cleaned
+        return cleaned.strip()
 
     @classmethod
     def extract_arxiv_id_from_work(cls, work: Dict) -> Optional[str]:
@@ -185,7 +189,8 @@ class ArxivFetcher:
 
     def download_pdf(self, paper: PaperMetadata) -> Path:
         """Download the PDF for a paper with retry and User-Agent header if not already cached locally."""
-        target_path = self.download_dir / f"{paper.paper_id}.pdf"
+        safe_filename = paper.paper_id.replace("/", "_")
+        target_path = self.download_dir / f"{safe_filename}.pdf"
         if target_path.exists() and target_path.stat().st_size > 0:
             paper.local_pdf_path = str(target_path)
             return target_path

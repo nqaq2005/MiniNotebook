@@ -24,15 +24,15 @@ from src.retrieval.reranker import CrossEncoderReranker
 
 
 app = FastAPI(
-    title="ScholarRAG API",
-    description="NotebookLM-Style AI Research Assistant & 3D Citation Graph",
+    title="MiniNotebook API",
+    description="NotebookLM-Style AI Research Assistant & Markdown Workspace",
     version="0.3.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -57,6 +57,12 @@ def get_retriever(search_mode: str) -> HybridGraphRetriever:
             search_mode=mode,
         )
     return _retrievers[mode]
+
+
+@app.get("/healthz")
+def healthz():
+    """Liveness probe for Docker container and orchestrators."""
+    return {"status": "ok"}
 
 HTML_PATH = Path(__file__).resolve().parent / "index.html"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -88,72 +94,18 @@ def _truncate_title(title: str, max_len: int = 38) -> str:
     return cleaned[: max_len - 1].rstrip() + "…"
 
 
-def _build_graph_payload(max_external: int = 45) -> dict:
-    """Build nodes and links with human-readable document names for the 3D citation graph."""
-    citation_graph.resolve_reference_titles(max_nodes=40)
-
-    nodes = []
-    edges = []
-
-    ingested_ids = {
-        n for n, attr in citation_graph.graph.nodes(data=True) if attr.get("ingested", False)
-    }
-
-    for pid in ingested_ids:
-        attr = citation_graph.graph.nodes[pid]
-        title = attr.get("title", pid)
-        out_deg = citation_graph.graph.out_degree(pid)
-        nodes.append(
-            {
-                "id": pid,
-                "label": _truncate_title(title, 42),
-                "title": title,
-                "authors": attr.get("authors", []),
-                "published_date": attr.get("published_date") or "N/A",
-                "group": "ingested",
-                "val": max(10, min(18, 8 + out_deg // 4)),
-                "citations": attr.get("citation_count", 0),
-            }
-        )
-
-    ext_candidates = []
-    for n, attr in citation_graph.graph.nodes(data=True):
-        if not attr.get("ingested", False):
-            in_deg = citation_graph.graph.in_degree(n)
-            if in_deg > 0:
-                ext_candidates.append((in_deg, n))
-    ext_candidates.sort(reverse=True)
-
-    kept_ext = {n for _, n in ext_candidates[:max_external]}
-    for in_deg, ext_id in ext_candidates[:max_external]:
-        raw_title = citation_graph.graph.nodes[ext_id].get("title", ext_id)
-        if raw_title.startswith("External Reference"):
-            display_title = ext_id
-        else:
-            display_title = raw_title
-        nodes.append(
-            {
-                "id": ext_id,
-                "label": _truncate_title(display_title, 34),
-                "title": display_title,
-                "group": "shared_ref" if in_deg >= 2 else "external_ref",
-                "val": 5.5 if in_deg >= 2 else 2.6,
-                "citations": in_deg,
-            }
-        )
-
-    for u, v in citation_graph.graph.edges():
-        if u in ingested_ids and (v in ingested_ids or v in kept_ext):
-            edges.append({"source": u, "target": v, "from": u, "to": v})
-
-    return {"nodes": nodes, "edges": edges}
+from collections import defaultdict
 
 
 def _build_papers_list() -> List[dict]:
     items = []
+    chunks_by_paper = defaultdict(list)
+    for c in vector_store.chunks_by_id.values():
+        chunks_by_paper[c.paper_id].append(c)
+
     for node_id, attr in citation_graph.graph.nodes(data=True):
         if attr.get("ingested", False):
-            chunks = [c for c in vector_store.chunks_by_id.values() if c.paper_id == node_id]
+            chunks = chunks_by_paper.get(node_id, [])
             sections = list(dict.fromkeys(c.section_title for c in chunks))
             abstract_chunk = next((c.content for c in chunks if c.section_title.lower() == "abstract"), "")
             items.append(
@@ -215,17 +167,27 @@ def serve_ui():
     return FileResponse(HTML_PATH)
 
 
+_shared_llm_client: Optional[LLMClient] = None
+
+
+def get_shared_llm_client() -> LLMClient:
+    global _shared_llm_client
+    if _shared_llm_client is None:
+        _shared_llm_client = LLMClient()
+    return _shared_llm_client
+
+
 @app.get("/api/stats")
 def get_stats():
     g_stats = citation_graph.get_stats()
     papers = _build_papers_list()
-    llm_check = LLMClient()
+    llm_check = get_shared_llm_client()
     return {
         "metrics": {
-            "ingested_papers": g_stats["ingested_papers"],
+            "ingested_papers": len(papers),
             "indexed_chunks": len(vector_store.chunks_by_id),
-            "total_nodes": g_stats["total_nodes"],
-            "total_citation_edges": g_stats["total_citation_edges"],
+            "total_nodes": g_stats.get("total_nodes", len(papers)),
+            "total_citation_edges": g_stats.get("total_citation_edges", 0),
         },
         "config": {
             "llm_provider": settings.llm_provider,
@@ -240,7 +202,7 @@ def get_stats():
         },
         "papers": papers,
         "suggestions": _build_suggestions(papers),
-        "graph": _build_graph_payload(),
+        "graph": {"total_nodes": g_stats["total_nodes"], "total_edges": g_stats["total_citation_edges"]},
     }
 
 
@@ -259,16 +221,25 @@ def ingest_papers(req: IngestRequest):
         )
 
 
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+
+
 @app.post("/api/upload")
-async def upload_pdf(
+def upload_pdf(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
 ):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Please upload a valid .pdf file.")
 
-    save_path = settings.raw_pdf_dir / Path(file.filename).name
-    content = await file.read()
+    content = file.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File size exceeds the maximum limit of 50MB.")
+    if not content.startswith(b"%PDF-"):
+        raise HTTPException(status_code=400, detail="Invalid PDF file format (missing %PDF- header).")
+
+    safe_name = Path(file.filename).name
+    save_path = settings.raw_pdf_dir / safe_name
     save_path.write_bytes(content)
 
     info = pipeline.ingest_local_pdf(
@@ -303,7 +274,11 @@ def ask_question(req: AskRequest):
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
     lang = req.language or getattr(settings, "llm_language", "vi")
-    resp = _build_agent(req).run(question, language=lang)
+    resp = _build_agent(req).run(
+        question,
+        language=lang,
+        paper_id_filter=req.paper_id_filter,
+    )
     return {
         "question": resp.question,
         "sub_queries": resp.sub_queries,
@@ -330,11 +305,15 @@ def ask_question_stream(req: AskRequest):
 
     def event_lines():
         try:
-            for event in agent.run_stream(question, language=lang):
+            for event in agent.run_stream(
+                question,
+                language=lang,
+                paper_id_filter=req.paper_id_filter,
+            ):
                 if event.get("type") == "done":
                     t = event.get("timings", {})
                     print(
-                        f"[ScholarRAG] retrieval={t.get('retrieval_ms')}ms "
+                        f"[MiniNotebook] retrieval={t.get('retrieval_ms')}ms "
                         f"ttft={t.get('ttft_ms')}ms llm={t.get('llm_ms')}ms total={t.get('total_ms')}ms"
                     )
                 yield json.dumps(event, ensure_ascii=False) + "\n"

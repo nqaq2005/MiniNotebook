@@ -37,8 +37,10 @@ class SectionAwareChunker:
     def _should_skip_section(self, section_title: str) -> bool:
         if not self.skip_references:
             return False
-        normalized = re.sub(r"^\d+(?:\.\d+)*\s*", "", section_title.lower()).strip()
-        return normalized in self.SKIP_SECTIONS
+        normalized = re.sub(r"^\d+(?:\.\d+)*\s*", "", section_title.lower()).strip().rstrip(":")
+        return normalized in self.SKIP_SECTIONS or any(
+            normalized.startswith(s) for s in self.SKIP_SECTIONS
+        )
 
     def chunk_paper(
         self,
@@ -106,7 +108,11 @@ class SectionAwareChunker:
 
             for line in lines:
                 stripped = line.strip()
-                if self.HEADING_PATTERN.match(stripped):
+                is_caption = stripped.lower().startswith((
+                    "**figure", "**fig.", "**fig ", "**table", "**tab.", "**tab ",
+                    "**note", "**algorithm", "**definition", "**theorem", "**lemma"
+                ))
+                if not is_caption and self.HEADING_PATTERN.match(stripped):
                     if current_section["content"].strip():
                         sections.append(current_section)
                     current_section = {

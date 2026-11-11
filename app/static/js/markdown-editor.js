@@ -2,8 +2,8 @@
  * markdown-editor.js - Markdown workspace logic, Split/Overlay layout modes, auto-save, and formatting
  */
 
-let mdEditorMode = localStorage.getItem('scholar_md_mode') || 'edit';
-let mdLayoutMode = localStorage.getItem('scholar_md_layout_mode') || 'split';
+let mdEditorMode = localStorage.getItem('mininotebook_md_mode') || localStorage.getItem('scholar_md_mode') || 'edit';
+let mdLayoutMode = localStorage.getItem('mininotebook_md_layout_mode') || localStorage.getItem('scholar_md_layout_mode') || 'split';
 let mdSaveTimer = null;
 let mdLayoutAnimation = null;
 let mdPanelPlaceholder = null;
@@ -13,7 +13,7 @@ function initMarkdownEditor() {
   const titleInput = document.getElementById('md-doc-title');
   if (!textarea) return;
 
-  const savedContent = localStorage.getItem('scholar_markdown_content');
+  const savedContent = localStorage.getItem('mininotebook_markdown_content') || localStorage.getItem('scholar_markdown_content');
   if (savedContent !== null) {
     textarea.value = savedContent;
   } else {
@@ -24,7 +24,7 @@ function initMarkdownEditor() {
       '- Có thể đặt ghi chú cạnh khung chat hoặc phủ toàn bộ khung chat bằng hai nút ở thanh tiêu đề.\n\n---\n';
   }
 
-  const savedTitle = localStorage.getItem('scholar_markdown_title');
+  const savedTitle = localStorage.getItem('mininotebook_markdown_title') || localStorage.getItem('scholar_markdown_title');
   if (savedTitle && titleInput) {
     titleInput.value = savedTitle;
   }
@@ -51,9 +51,30 @@ function initMarkdownEditor() {
       return;
     }
 
+    // Ctrl + I: Toggle Settings (per user specification)
     if ((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I')) {
       e.preventDefault();
-      insertMd('*', '*', 'chữ in nghiêng');
+      if (typeof toggleSettingsModal === 'function') {
+        toggleSettingsModal();
+      }
+      return;
+    }
+
+    // Ctrl + M: Toggle Markdown panel
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'm' || e.key === 'M')) {
+      e.preventDefault();
+      if (typeof toggleMarkdownPanel === 'function') {
+        toggleMarkdownPanel();
+      }
+      return;
+    }
+
+    // Ctrl + Shift + S: Toggle Sources panel
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      if (typeof toggleSourcesSidebar === 'function') {
+        toggleSourcesSidebar();
+      }
       return;
     }
   });
@@ -67,13 +88,15 @@ function handleMarkdownInput() {
   const text = textarea.value;
 
   const ind = document.getElementById('md-save-indicator');
-  const isEn = window.currentLanguage === 'en';
-  if (ind) ind.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> ${isEn ? 'Saving...' : 'Đang lưu...'}`;
+  if (ind) ind.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> ${t('Đang lưu...')}`;
 
   if (mdSaveTimer) clearTimeout(mdSaveTimer);
   mdSaveTimer = setTimeout(() => {
-    try { localStorage.setItem('scholar_markdown_content', text); } catch (e) {}
-    if (ind) ind.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> ${isEn ? 'Saved' : 'Đã lưu'}`;
+    try {
+      localStorage.setItem('mininotebook_markdown_content', text);
+      localStorage.setItem('scholar_markdown_content', text);
+    } catch (e) {}
+    if (ind) ind.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> ${t('Đã lưu')}`;
   }, 300);
 
   updateMarkdownStats();
@@ -95,10 +118,9 @@ function updateMarkdownStats() {
   const charsEl = document.getElementById('md-stat-chars');
   const linesEl = document.getElementById('md-stat-lines');
 
-  const isEn = window.currentLanguage === 'en';
-  if (wordsEl) wordsEl.textContent = words + (isEn ? ' words' : ' từ');
-  if (charsEl) charsEl.textContent = chars + (isEn ? ' characters' : ' ký tự');
-  if (linesEl) linesEl.textContent = lines + (isEn ? ' lines' : ' dòng');
+  if (wordsEl) wordsEl.textContent = `${words} ${t('từ')}`;
+  if (charsEl) charsEl.textContent = `${chars} ${t('ký tự')}`;
+  if (linesEl) linesEl.textContent = `${lines} ${t('dòng')}`;
 }
 
 function updateMarkdownPreview() {
@@ -121,7 +143,10 @@ function updateMarkdownPreview() {
 
 function setEditorViewMode(mode) {
   mdEditorMode = mode;
-  try { localStorage.setItem('scholar_md_mode', mode); } catch (e) {}
+  try {
+    localStorage.setItem('mininotebook_md_mode', mode);
+    localStorage.setItem('scholar_md_mode', mode);
+  } catch (e) {}
 
   const editorPane = document.getElementById('md-editor-pane');
   const previewPane = document.getElementById('md-preview-pane');
@@ -175,7 +200,10 @@ function setMarkdownLayoutMode(mode) {
   const wasVisible = getComputedStyle(panel).display !== 'none' && before.width > 0 && before.height > 0;
 
   mdLayoutMode = mode === 'overlay' ? 'overlay' : 'split';
-  try { localStorage.setItem('scholar_md_layout_mode', mdLayoutMode); } catch (e) {}
+  try {
+    localStorage.setItem('mininotebook_md_layout_mode', mdLayoutMode);
+    localStorage.setItem('scholar_md_layout_mode', mdLayoutMode);
+  } catch (e) {}
 
   const splitBtn = document.getElementById('btn-md-layout-split');
   const overlayBtn = document.getElementById('btn-md-layout-overlay');
@@ -255,7 +283,10 @@ function syncMarkdownPanelLayout() {
 
 function saveMarkdownDocTitle(val) {
   const title = (val || '').trim() || 'Ghi chú nghiên cứu.md';
-  try { localStorage.setItem('scholar_markdown_title', title); } catch (e) {}
+  try {
+    localStorage.setItem('mininotebook_markdown_title', title);
+    localStorage.setItem('scholar_markdown_title', title);
+  } catch (e) {}
 }
 
 function insertMd(prefix, suffix, defaultText) {
@@ -333,7 +364,7 @@ function copyMarkdownContent() {
     const ind = document.getElementById('md-save-indicator');
     if (ind) {
       const prev = ind.innerHTML;
-      const copiedText = window.currentLanguage === 'en' ? '✓ Markdown copied' : '✓ Đã chép Markdown';
+      const copiedText = t('✓ Đã chép Markdown');
       ind.innerHTML = `<span class="text-sky-400 font-semibold">${copiedText}</span>`;
       setTimeout(() => { ind.innerHTML = prev; }, 1800);
     }

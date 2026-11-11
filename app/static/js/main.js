@@ -18,22 +18,19 @@ async function loadStats() {
 
   const n = data.metrics.ingested_papers;
   const statPapers = document.getElementById('stat-papers');
+  const statPapersBottom = document.getElementById('stat-papers-bottom');
   const inputSourceBadge = document.getElementById('input-source-badge');
   const overviewSub = document.getElementById('overview-sub');
   const statChunks = document.getElementById('stat-chunks');
-  const statNodes = document.getElementById('stat-nodes');
-  const statEdges = document.getElementById('stat-edges');
 
-  const isEn = window.currentLanguage === 'en';
-  const sourceLabel = isEn ? 'sources' : 'nguồn';
-  const chunkLabel = isEn ? 'chunks' : 'phân đoạn';
+  const sourceLabel = t('nguồn');
+  const chunkLabel = t('phân đoạn');
 
   if (statPapers) statPapers.textContent = n;
+  if (statPapersBottom) statPapersBottom.textContent = n;
   if (inputSourceBadge) inputSourceBadge.textContent = `${n} ${sourceLabel}`;
   if (overviewSub) overviewSub.textContent = `${n} ${sourceLabel} • ${data.metrics.indexed_chunks} ${chunkLabel}`;
   if (statChunks) statChunks.textContent = data.metrics.indexed_chunks;
-  if (statNodes) statNodes.textContent = data.metrics.total_nodes;
-  if (statEdges) statEdges.textContent = data.metrics.total_citation_edges;
 
   const cfgProvider = document.getElementById('cfg-provider');
   const cfgModel = document.getElementById('cfg-model');
@@ -46,7 +43,7 @@ async function loadStats() {
   if (cfgReasoning) cfgReasoning.value = data.config.llm_reasoning_effort || 'medium';
 
   renderSettingsControls();
-  setLanguage(localStorage.getItem('scholar_lang') || data.config.llm_language || 'vi');
+  setLanguage(localStorage.getItem('mininotebook_lang') || localStorage.getItem('scholar_lang') || data.config.llm_language || 'vi');
   onProviderChange();
 
   const badge = document.getElementById('llm-status-badge');
@@ -92,7 +89,7 @@ window.loadStats = loadStats;
 // Bootstrap on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
   const savedTitle = (function () {
-    try { return localStorage.getItem('scholar_title'); } catch (e) { return null; }
+    try { return localStorage.getItem('mininotebook_title') || localStorage.getItem('scholar_title'); } catch (e) { return null; }
   })();
   saveNotebookTitle(savedTitle || 'Sổ tay nghiên cứu');
   document.title = 'MiniNotebook';

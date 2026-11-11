@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import time
 from typing import Dict, Iterator, List, Optional, Tuple
@@ -8,6 +9,8 @@ from src.agent.state import ResearchAgentState
 from src.config import settings
 from src.models.schemas import RetrievedPassage
 from src.retrieval.hybrid_retriever import HybridGraphRetriever
+
+logger = logging.getLogger(__name__)
 
 
 StreamEvent = Tuple[str, str]  # ("thinking" | "token", text)
@@ -103,12 +106,19 @@ class LLMClient:
 
         if api_key is not None:
             self.api_key = api_key.strip()
+        elif base_url and base_url.strip() and base_url.strip() != self.PROVIDER_DEFAULT_BASE_URLS.get(self.provider, ""):
+            # User provided a custom external URL without an explicit API key;
+            # do NOT leak server .env secrets to arbitrary external endpoints (SEC-01)
+            self.api_key = ""
+        elif self.provider == "gemini":
+            self.api_key = settings.gemini_api_key.strip()
+        elif self.provider == "openai":
+            self.api_key = (settings.openai_api_key or settings.custom_api_key).strip()
+        elif self.provider == "ollama":
+            self.api_key = ""
         elif self.provider in self.OPENAI_COMPATIBLE_PROVIDERS:
-            self.api_key = (
-                settings.custom_api_key
-                or settings.openai_api_key
-                or settings.gemini_api_key
-            ).strip()
+            # custom, deepseek, groq, openrouter, together, mistral
+            self.api_key = settings.custom_api_key.strip()
         else:
             self.api_key = settings.gemini_api_key.strip()
 
@@ -122,7 +132,6 @@ class LLMClient:
         "ollama",
         "together",
         "mistral",
-        "anthropic",
     }
 
     PROVIDER_DEFAULT_BASE_URLS = {
@@ -187,8 +196,6 @@ class LLMClient:
         params = []
         if stream:
             params.append("alt=sse")
-        if self._is_valid_key(self.api_key):
-            params.append(f"key={self.api_key}")
         if params:
             sep = "&" if "?" in base_endpoint else "?"
             return f"{base_endpoint}{sep}{'&'.join(params)}"
@@ -329,7 +336,7 @@ class LLMClient:
                     yield from self._stream_gemini(client, system, prompt, temperature)
         except Exception as exc:
             self.last_error = f"{type(exc).__name__}: {exc}"
-            print(f"[LLMClient Warning] {self.provider} request failed: {self.last_error}")
+            logger.warning(f"{self.provider} request failed: {self.last_error}")
             raise
 
     def generate(self, prompt: str, temperature: float = 0.2, system: Optional[str] = None) -> Optional[str]:
@@ -408,6 +415,24 @@ class AgentNodes:
         if self.COMPARISON_SPLIT_PATTERN.search(question):
             entities = re.findall(r"\b[A-Z][A-Za-z0-9\-]{2,}\b", question)
             unique_entities = list(dict.fromkeys(entities))
+            if len(unique_entities) < 2:
+                # Fallback: extract terms across comparison separators (e.g. lowercase 'compare bert vs roberta') (COR-13)
+                cleaned = re.sub(
+                    r"^\s*(?:compare|comparing|difference between|so sánh|khác nhau giữa)\s+",
+                    "",
+                    question,
+                    flags=re.IGNORECASE,
+                )
+                sub_parts = re.split(r"\b(?:vs\.?|versus|and|và|with|với)\b|,", cleaned, flags=re.IGNORECASE)
+                refined = []
+                for p in sub_parts:
+                    term = p.strip().strip("?.,\"'")
+                    term = re.sub(r"^(?:mô hình|phương pháp|thuật toán|the|model|method)\s+", "", term, flags=re.IGNORECASE).strip()
+                    if len(term) >= 2:
+                        refined.append(term)
+                if len(refined) >= 2:
+                    unique_entities = refined[:3]
+
             if len(unique_entities) >= 2:
                 for ent in unique_entities[:3]:
                     sub_queries.append(f"{ent} methodology architecture experiments and performance")
@@ -423,11 +448,13 @@ class AgentNodes:
         sub_queries = state.get("sub_queries") or [state["question"]]
         merged_passages: Dict[str, RetrievedPassage] = {}
         related_graph_set: Dict[str, None] = {}
+        paper_id_filter = state.get("paper_id_filter")
 
         for sq in sub_queries:
             passages, graph_links = self.retriever.retrieve(
                 query=sq,
                 rerank_top_k=self.per_query_top_k,
+                paper_id_filter=paper_id_filter,
             )
             for p in passages:
                 cid = p.chunk.chunk_id
@@ -547,6 +574,7 @@ class AgentNodes:
 
         system_prompt = get_synthesis_system_prompt(lang)
         answer_parts: List[str] = []
+        stream_error: Optional[str] = None
         if self.llm.is_configured:
             t0 = time.perf_counter()
             first_token_at: Optional[float] = None
@@ -562,15 +590,18 @@ class AgentNodes:
                     if kind == "token":
                         answer_parts.append(text)
                     yield {"type": kind, "text": text}
-            except Exception:
-                pass
+            except Exception as exc:
+                stream_error = str(exc)
+                state["is_partial"] = bool(answer_parts)
+                yield {"type": "error", "message": f"Stream interrupted: {stream_error}"}
+
             state["llm_ms"] = round((time.perf_counter() - t0) * 1000)
 
             answer = "".join(answer_parts).strip()
             if answer:
                 state["draft_answer"] = answer
                 return
-            reason = self.llm.last_error or "the model returned an empty answer"
+            reason = stream_error or self.llm.last_error or "the model returned an empty answer"
         else:
             reason = "no LLM is configured"
 
@@ -607,10 +638,18 @@ class AgentNodes:
             return state
 
         verified_citations = [cid for cid in cited_brackets if cid in valid_paper_ids]
-        score = len(verified_citations) / len(cited_brackets)
+        id_score = len(verified_citations) / len(cited_brackets)
+
+        # Lexical evidence support check: verify answer words overlap with retrieved passages (COR-10)
+        context_words = set(re.findall(r"\b\w{4,}\b", " ".join(p.chunk.content.lower() for p in passages)))
+        answer_words = set(re.findall(r"\b\w{4,}\b", answer.lower()))
+        lexical_overlap = len(answer_words & context_words) / max(1, len(answer_words)) if answer_words else 1.0
+
+        score = 0.7 * id_score + 0.3 * min(1.0, lexical_overlap * 2.0)
         state["grounding_score"] = round(score, 2)
-        state["is_grounded"] = score >= 0.8
+        state["is_grounded"] = id_score >= 0.8 and lexical_overlap >= 0.25
         state["verification_notes"] = (
-            f"Verified {len(verified_citations)}/{len(cited_brackets)} inline citations against retrieved papers."
+            f"Verified {len(verified_citations)}/{len(cited_brackets)} citations "
+            f"(lexical evidence overlap: {round(lexical_overlap * 100)}%)."
         )
         return state

@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import math
 import re
 import uuid
@@ -7,6 +8,8 @@ from rank_bm25 import BM25Okapi
 
 from src.config import settings
 from src.models.schemas import RetrievedPassage, SectionChunk
+
+logger = logging.getLogger(__name__)
 
 
 TOKEN_PATTERN = re.compile(r"[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*")
@@ -109,7 +112,15 @@ def get_default_embedder(in_memory: bool = False) -> EmbedderProtocol:
         return HashingEmbedder()
     try:
         return FastEmbedder(model_name=settings.embedding_model)
-    except Exception:
+    except Exception as exc:
+        import warnings
+        warnings.warn(
+            f"[MiniNotebook Warning] Failed to initialize FastEmbedder ({exc}). "
+            "Falling back to HashingEmbedder for offline/test mode. "
+            "Embeddings will not be semantically meaningful until fastembed is installed and model downloaded.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         return HashingEmbedder()
 
 
@@ -143,15 +154,20 @@ class HybridVectorStore:
                     c.collection_exists(self.collection_name)
                     self.client = c
                 except Exception as e:
-                    print(f"[!] Warning: Cannot connect to Qdrant at {settings.qdrant_url} ({e}). Falling back to local storage.")
+                    logger.warning(f"Cannot connect to Qdrant at {settings.qdrant_url} ({e}). Falling back to local storage.")
                     self.client = None
 
             if self.client is None:
                 try:
                     self.client = QdrantClient(path=str(settings.vector_db_dir))
-                except RuntimeError:
-                    # Fallback to in-memory client if local storage is locked by a running uvicorn server
-                    print("[!] Warning: Local storage locked. Falling back to in-memory Qdrant.")
+                except RuntimeError as exc:
+                    import warnings
+                    warnings.warn(
+                        f"[MiniNotebook Warning] Local storage at '{settings.vector_db_dir}' is locked ({exc}). "
+                        "Falling back to ephemeral in-memory Qdrant. Data will not persist across restarts.",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
                     self.client = QdrantClient(":memory:")
 
         if not self.client.collection_exists(self.collection_name):
@@ -166,27 +182,35 @@ class HybridVectorStore:
         self.chunks_by_id: Dict[str, SectionChunk] = {}
         self._bm25: Optional[BM25Okapi] = None
         self._bm25_chunk_ids: List[str] = []
+        self._bm25_dirty: bool = False
         self._sync_bm25_from_qdrant()
 
     def _sync_bm25_from_qdrant(self) -> None:
-        """Rebuild the in-memory BM25 index from stored Qdrant payloads on startup."""
-        points, _ = self.client.scroll(
-            collection_name=self.collection_name,
-            limit=10000,
-            with_payload=True,
-            with_vectors=False,
-        )
-        for pt in points:
-            payload = pt.payload or {}
-            if "chunk_id" in payload:
-                chunk = SectionChunk(**payload)
-                self.chunks_by_id[chunk.chunk_id] = chunk
+        """Rebuild the in-memory BM25 index from stored Qdrant payloads on startup with pagination."""
+        offset = None
+        while True:
+            points, next_offset = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=1000,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for pt in points:
+                payload = pt.payload or {}
+                if "chunk_id" in payload:
+                    chunk = SectionChunk(**payload)
+                    self.chunks_by_id[chunk.chunk_id] = chunk
+            if next_offset is None or not points:
+                break
+            offset = next_offset
         self._rebuild_bm25()
 
     def _rebuild_bm25(self) -> None:
         self._bm25_chunk_ids = list(self.chunks_by_id.keys())
         if not self._bm25_chunk_ids:
             self._bm25 = None
+            self._bm25_dirty = False
             return
         corpus = [
             tokenize_scientific_text(
@@ -195,6 +219,12 @@ class HybridVectorStore:
             for cid in self._bm25_chunk_ids
         ]
         self._bm25 = BM25Okapi(corpus)
+        self._bm25_dirty = False
+
+    def _ensure_bm25(self) -> None:
+        """Lazily rebuild BM25 only when dirty before search."""
+        if self._bm25_dirty or (self.chunks_by_id and self._bm25 is None):
+            self._rebuild_bm25()
 
     @staticmethod
     def _chunk_id_to_uuid(chunk_id: str) -> str:
@@ -225,7 +255,7 @@ class HybridVectorStore:
         for chunk in chunks:
             self.chunks_by_id[chunk.chunk_id] = chunk
 
-        self._rebuild_bm25()
+        self._bm25_dirty = True
         return len(chunks)
 
     def reindex_all(self) -> int:
@@ -250,7 +280,7 @@ class HybridVectorStore:
         )
         for cid in target_cids:
             self.chunks_by_id.pop(cid, None)
-        self._rebuild_bm25()
+        self._bm25_dirty = True
         return len(target_cids)
 
     def hybrid_search(
@@ -269,6 +299,8 @@ class HybridVectorStore:
         """
         if not self.chunks_by_id:
             return []
+
+        self._ensure_bm25()
 
         from qdrant_client.models import FieldCondition, Filter, MatchValue
 

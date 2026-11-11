@@ -46,6 +46,16 @@ function closeSettingsModal() {
   if (modal) modal.classList.add('hidden');
 }
 
+function toggleSettingsModal() {
+  const modal = document.getElementById('modal-settings');
+  if (!modal) return;
+  if (modal.classList.contains('hidden')) {
+    openSettingsModal();
+  } else {
+    closeSettingsModal();
+  }
+}
+
 function closeSourceDrawer() {
   const drawer = document.getElementById('source-drawer');
   if (drawer) drawer.classList.add('hidden');
@@ -62,7 +72,10 @@ function openDrawer(badge, html) {
 
 function saveNotebookTitle(v) {
   const title = (v || '').trim() || 'Sổ tay nghiên cứu';
-  try { localStorage.setItem('scholar_title', title); } catch (e) {}
+  try {
+    localStorage.setItem('mininotebook_title', title);
+    localStorage.setItem('scholar_title', title);
+  } catch (e) {}
   const overviewTitle = document.getElementById('overview-title');
   if (overviewTitle) overviewTitle.textContent = title;
   document.title = 'MiniNotebook';
@@ -94,8 +107,37 @@ function switchIngestTab(tab) {
   styleIngestTabs(tab);
 }
 
-/* ================= KEYBOARD ================= */
+/* ================= KEYBOARD SHORTCUTS ================= */
 window.addEventListener('keydown', (e) => {
+  const isCtrl = e.ctrlKey || e.metaKey;
+  const key = (e.key || '').toLowerCase();
+
+  // 1. Ctrl + M: Đóng/mở ghi chú Markdown (ngăn chặn hành vi mặc định của trình duyệt)
+  if (isCtrl && !e.shiftKey && !e.altKey && key === 'm') {
+    e.preventDefault();
+    if (typeof toggleMarkdownPanel === 'function') {
+      toggleMarkdownPanel();
+    }
+    return;
+  }
+
+  // 2. Ctrl + Shift + S: Đóng/mở tab Source (ngăn chặn Web Capture / Save Page của trình duyệt)
+  if (isCtrl && e.shiftKey && !e.altKey && key === 's') {
+    e.preventDefault();
+    if (typeof toggleSourcesSidebar === 'function') {
+      toggleSourcesSidebar();
+    }
+    return;
+  }
+
+  // 3. Ctrl + I: Đóng/mở Settings (ngăn chặn Page Info / Italic mặc định của trình duyệt)
+  if (isCtrl && !e.shiftKey && !e.altKey && key === 'i') {
+    e.preventDefault();
+    toggleSettingsModal();
+    return;
+  }
+
+  // Escape: Đóng các modal, drawer hoặc custom select đang mở
   if (e.key === 'Escape' || e.key === 'Esc') {
     if (document.querySelector('.cs.open')) {
       document.querySelectorAll('.cs.open').forEach(x => x.classList.remove('open'));
@@ -403,6 +445,7 @@ window.openAddSourceModal = openAddSourceModal;
 window.closeAddSourceModal = closeAddSourceModal;
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
+window.toggleSettingsModal = toggleSettingsModal;
 window.closeSourceDrawer = closeSourceDrawer;
 window.openDrawer = openDrawer;
 window.saveNotebookTitle = saveNotebookTitle;

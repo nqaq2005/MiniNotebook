@@ -1,29 +1,143 @@
-# Virtual environments
+# ==========================================
+# Python & Environment
+# ==========================================
 .venv/
 venv/
 env/
+ENV/
+env.bak/
+venv.bak/
 
-# Python bytecode & cache
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ==========================================
+# Testing & Code Quality
+# ==========================================
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
 
-# Environment variables
+# ==========================================
+# Environment Variables & Secrets
+# ==========================================
 .env
+.env.local
+.env.*.local
+*.pem
+*.key
 
-# Data & storage artifacts
-data/raw_pdfs/*.pdf
-data/parsed_md/*.md
+# ==========================================
+# Data & Storage Artifacts
+# ==========================================
+# Raw downloaded PDFs & parsed markdown
+data/raw_pdfs/*
+!data/raw_pdfs/.gitkeep
+
+data/parsed_md/*
+!data/parsed_md/.gitkeep
+
+# Vector DB & Citation Graph persistence
 data/vector_db/*
-data/models_cache/*
+!data/vector_db/.gitkeep
+
 data/citation_graph/*.json
 data/citation_graph/*.gpickle
-!data/**/.gitkeep
+!data/citation_graph/.gitkeep
 
-# IDE
-.vscode/
+# Downloaded HuggingFace/ONNX model weights cache
+data/models_cache/
+
+# Qdrant Docker Server storage volume
+data/qdrant_server_storage/*
+!data/qdrant_server_storage/.gitkeep
+
+# General database files
+*.sqlite3
+*.db
+
+# ==========================================
+# Logs & Temporary Files
+# ==========================================
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+
+# ==========================================
+# Operating System & IDEs
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+
+# Linux
+*~
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains (PyCharm, IntelliJ)
 .idea/
+
+# Vim / Emacs
 *.swp
+*.swo
+*#
+.#*
+
+# Archive & Backup files
+*.zip
+*.tar.gz
+*.tgz
+mininotebook.zip
+BAO_CAO_DANH_GIA_MA_NGUON.md
+
+# ==========================================
+# Node.js (if any frontend tooling used)
+# ==========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -1,0 +1,25 @@
+# Version control
+.git
+.gitignore
+
+# Python cache & virtualenvs
+.venv
+venv
+ENV
+env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+
+# Local secrets & configs
+.env
+
+# Large archives and evaluation reports
+*.zip
+mininotebook.zip
+BAO_CAO_DANH_GIA_MA_NGUON.md
+
+# Runtime data (mounted dynamically via Docker volumes)
+data/

@@ -41,7 +41,7 @@ def build_components(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="ScholarRAG CLI — AI Literature Review & Citation Graph Assistant"
+        description="MiniNotebook CLI — AI Literature Review & Research Assistant"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -105,28 +105,27 @@ def main():
     model_name = getattr(args, "model", None)
     reasoning_effort = getattr(args, "reasoning_effort", None)
 
-    vector_store, citation_graph, pipeline, agent = build_components(
-        search_mode=mode,
-        provider=provider,
-        base_url=base_url,
-        model_name=model_name,
-        reasoning_effort=reasoning_effort,
-    )
-
     if args.command == "ingest":
+        vector_store = HybridVectorStore()
+        citation_graph = CitationGraphStore()
+        pipeline = IngestionPipeline(vector_store=vector_store, citation_graph=citation_graph)
         print(f"[*] Ingesting up to {args.max_papers} papers for query: '{args.query}'...")
         res = pipeline.ingest_topic(query=args.query, max_papers=args.max_papers)
         print(json.dumps(res, indent=2))
 
     elif args.command == "reindex":
+        vector_store = HybridVectorStore()
         embedder_name = type(vector_store.embedder).__name__
         print(f"[*] Re-embedding all stored chunks using {embedder_name} ({getattr(vector_store.embedder, 'model_name', 'default')})...")
         count = vector_store.reindex_all()
         print(f"[+] Successfully re-embedded {count} chunks!")
 
     elif args.command == "sync-local":
-        from pathlib import Path
-        pdf_dir = Path("data/raw_pdfs")
+        vector_store = HybridVectorStore()
+        citation_graph = CitationGraphStore()
+        pipeline = IngestionPipeline(vector_store=vector_store, citation_graph=citation_graph)
+        from src.config import settings
+        pdf_dir = settings.raw_pdf_dir
         ingested_ids = {
             n for n, attr in citation_graph.graph.nodes(data=True) if attr.get("ingested")
         }
@@ -135,7 +134,7 @@ def main():
             if p.stem.replace(" ", "_") not in ingested_ids
         ]
         if not candidates:
-            print("[*] All local PDFs in data/raw_pdfs are already indexed in Qdrant & Citation Graph!")
+            print(f"[*] All local PDFs in {pdf_dir} are already indexed in Qdrant & Citation Graph!")
         else:
             print(f"[*] Found {len(candidates)} unindexed PDF files. Syncing to Qdrant...")
             total_chunks = 0
@@ -148,6 +147,13 @@ def main():
             print(f"[+] Successfully indexed {len(candidates)} papers ({total_chunks} chunks) into Qdrant!")
 
     elif args.command == "ask":
+        vector_store, citation_graph, _, agent = build_components(
+            search_mode=mode,
+            provider=provider,
+            base_url=base_url,
+            model_name=model_name,
+            reasoning_effort=reasoning_effort,
+        )
         lang = getattr(args, "language", "vi")
         response = agent.run(args.question, language=lang)
         print("\n=== DECOMPOSED SUB-QUERIES ===")
@@ -158,13 +164,16 @@ def main():
         print(f"\nGrounded Check: {response.is_grounded} | Citations used: {len(response.citations)}")
 
     elif args.command == "stats":
+        vector_store = HybridVectorStore()
+        citation_graph = CitationGraphStore()
         stats = citation_graph.get_stats()
         stats["indexed_chunks"] = len(vector_store.chunks_by_id)
         stats["embedder"] = type(vector_store.embedder).__name__
-        stats["reranker_active"] = agent.nodes.retriever.reranker._cross_encoder is not None
         print(json.dumps(stats, indent=2))
 
     elif args.command == "eval":
+        vector_store = HybridVectorStore()
+        citation_graph = CitationGraphStore()
         evaluator = RAGEvaluator()
         dynamic_samples = build_dynamic_benchmark(vector_store)
         print(f"[*] Running Dynamic Ablation Study across {len(dynamic_samples)} questions from your ingested papers...")

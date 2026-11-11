@@ -6,7 +6,10 @@ const isDark = () => document.documentElement.getAttribute('data-theme') !== 'li
 
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
-  try { localStorage.setItem('scholar_theme', theme); } catch (e) {}
+  try {
+    localStorage.setItem('mininotebook_theme', theme);
+    localStorage.setItem('scholar_theme', theme);
+  } catch (e) {}
   const sun = document.getElementById('icon-theme-sun');
   const moon = document.getElementById('icon-theme-moon');
   if (sun) sun.classList.toggle('hidden', theme !== 'dark');

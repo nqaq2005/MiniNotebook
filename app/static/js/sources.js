@@ -29,7 +29,7 @@ function renderSourcesList() {
     return;
   }
 
-  const chunkUnit = isEn ? 'chunks' : 'đoạn';
+  const chunkUnit = t('đoạn');
   const delLabel = t('Xóa nguồn');
 
   container.innerHTML = filtered.map(p => `
@@ -58,9 +58,7 @@ function inspectSourcePaper(paperId) {
          <a href="https://arxiv.org/pdf/${p.paper_id}.pdf" target="_blank" class="btn-outline !py-1.5 !text-xs">PDF ↗</a>
        </div>` : '';
   const sectionsHtml = (p.sections || []).map(s => `<span class="chip font-mono !text-[11px] mr-1.5 mb-1.5">${escapeHtml(s)}</span>`).join('');
-  const structTitle = isEn
-    ? `Document structure (${(p.sections || []).length} sections)`
-    : `Cấu trúc tài liệu (${(p.sections || []).length} mục)`;
+  const structTitle = `${t('Cấu trúc tài liệu')} (${(p.sections || []).length} ${t('mục')})`;
 
   openDrawer(`${t('Hướng dẫn nguồn')} • ${p.paper_id}`, `
     <div class="space-y-3">

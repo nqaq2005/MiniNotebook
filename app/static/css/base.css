@@ -6,7 +6,7 @@ html, body {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Google Sans Flex', 'Google Sans', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   transition: background-color .2s ease, color .2s ease;
 }

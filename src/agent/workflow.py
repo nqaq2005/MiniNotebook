@@ -38,9 +38,18 @@ class LiteratureReviewAgent:
     ):
         self.nodes = AgentNodes(retriever=retriever, llm_client=llm_client)
 
-    def run(self, question: str, language: str = "vi") -> SynthesisResponse:
+    def run(
+        self,
+        question: str,
+        language: str = "vi",
+        paper_id_filter: Optional[str] = None,
+    ) -> SynthesisResponse:
         """Execute the 4-stage Agentic RAG pipeline and return a structured SynthesisResponse."""
-        state: ResearchAgentState = {"question": question, "language": language}
+        state: ResearchAgentState = {
+            "question": question,
+            "language": language,
+            "paper_id_filter": paper_id_filter,
+        }
 
         state = self.nodes.decompose_query(state)
         state = self.nodes.retrieve_evidence(state)
@@ -56,14 +65,23 @@ class LiteratureReviewAgent:
             is_grounded=state.get("is_grounded", False),
         )
 
-    def run_stream(self, question: str, language: str = "vi") -> Iterator[Dict]:
+    def run_stream(
+        self,
+        question: str,
+        language: str = "vi",
+        paper_id_filter: Optional[str] = None,
+    ) -> Iterator[Dict]:
         """
         Streaming pipeline. Event order:
           status -> sources -> (thinking | token)* | fallback -> done
         Sources are sent BEFORE the LLM starts, so the UI can show them immediately.
         """
         t_start = time.perf_counter()
-        state: ResearchAgentState = {"question": question, "language": language}
+        state: ResearchAgentState = {
+            "question": question,
+            "language": language,
+            "paper_id_filter": paper_id_filter,
+        }
 
         yield {"type": "status", "stage": "retrieval", "message": "Searching sources (Hybrid + Cross-Encoder)..."}
         state = self.nodes.decompose_query(state)
@@ -88,6 +106,7 @@ class LiteratureReviewAgent:
             "answer": state.get("draft_answer", ""),
             "is_grounded": state.get("is_grounded", False),
             "grounding_score": state.get("grounding_score", 0.0),
+            "is_partial": state.get("is_partial", False),
             "timings": {
                 "retrieval_ms": retrieval_ms,
                 "ttft_ms": state.get("ttft_ms"),

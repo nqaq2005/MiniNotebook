@@ -246,10 +246,6 @@ select.field {
   box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
-.scene-nav-info {
-  display: none !important;
-}
-
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

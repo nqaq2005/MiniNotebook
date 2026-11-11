@@ -5,6 +5,7 @@
 const UI_TRANSLATIONS = {
   'Đang kiểm tra...': 'Checking...',
   'Cài đặt': 'Settings',
+  'Cài đặt (Ctrl+I)': 'Settings (Ctrl+I)',
   'Truy xuất, mô hình ngôn ngữ và giao diện.': 'Retrieval, language models, and appearance.',
   'Nguồn': 'Sources',
   'Thêm nguồn': 'Add source',
@@ -25,6 +26,14 @@ const UI_TRANSLATIONS = {
   '0 từ': '0 words',
   '0 ký tự': '0 characters',
   '1 dòng': '1 line',
+  'từ': 'words',
+  'ký tự': 'characters',
+  'dòng': 'lines',
+  'nguồn': 'sources',
+  'phân đoạn': 'chunks',
+  'đoạn': 'chunks',
+  'mục': 'sections',
+  '✓ Đã chép Markdown': '✓ Markdown copied',
   'Đã chép Markdown': 'Markdown copied',
   'Nội dung xem trước sẽ hiển thị ở đây...': 'Your preview will appear here...',
   'Nạp bài báo vào sổ tay để hỏi đáp và trích dẫn.': 'Add papers to your notebook for Q&A and citations.',
@@ -62,9 +71,12 @@ const UI_TRANSLATIONS = {
   'Cài đặt áp dụng cho các câu hỏi tiếp theo.': 'Settings apply to subsequent questions.',
   'Xong': 'Done',
   'Thu gọn': 'Collapse',
+  'Thu gọn (Ctrl+Shift+S)': 'Collapse (Ctrl+Shift+S)',
   'Mở thanh nguồn': 'Open sources panel',
+  'Mở thanh nguồn (Ctrl+Shift+S)': 'Open sources panel (Ctrl+Shift+S)',
   'Xóa cuộc trò chuyện': 'Clear conversation',
   'Ẩn/hiện Soạn thảo Markdown': 'Toggle Markdown editor',
+  'Ẩn/hiện Soạn thảo Markdown (Ctrl+M)': 'Toggle Markdown editor (Ctrl+M)',
   'Chuyển Dark / Light': 'Toggle dark / light mode',
   'Vị trí hiển thị ghi chú': 'Note display mode',
   'Chia đôi với khung chat': 'Split with chat',
@@ -76,6 +88,7 @@ const UI_TRANSLATIONS = {
   'Sao chép toàn bộ Markdown': 'Copy all Markdown',
   'Tải về file .md': 'Download .md file',
   'Đóng ghi chú': 'Close notes',
+  'Đóng ghi chú (Ctrl+M)': 'Close notes (Ctrl+M)',
   'Đóng (Esc)': 'Close (Esc)',
   'Giảm': 'Decrease',
   'Tăng': 'Increase',
@@ -280,6 +293,20 @@ function translateInterface() {
   if (typeof renderSourcesList === 'function') {
     renderSourcesList();
   }
+
+  // Update source count labels with current language
+  const papers = (window.globalState && window.globalState.papers) || [];
+  if (papers.length > 0) {
+    const n = papers.length;
+    const badge = document.getElementById('input-source-badge');
+    if (badge) badge.textContent = `${n} ${isEnglish ? 'sources' : 'nguồn'}`;
+
+    const chunks = document.getElementById('stat-chunks') ? document.getElementById('stat-chunks').textContent : '0';
+    const overviewSub = document.getElementById('overview-sub');
+    if (overviewSub) {
+      overviewSub.textContent = `${n} ${isEnglish ? 'sources' : 'nguồn'} • ${chunks} ${isEnglish ? 'chunks' : 'phân đoạn'}`;
+    }
+  }
 }
 
 function styleLangButtons() {
@@ -299,7 +326,10 @@ function styleLangButtons() {
 
 function setLanguage(lang) {
   window.currentLanguage = (lang === 'en' ? 'en' : 'vi');
-  try { localStorage.setItem('scholar_lang', window.currentLanguage); } catch (e) {}
+  try {
+    localStorage.setItem('mininotebook_lang', window.currentLanguage);
+    localStorage.setItem('scholar_lang', window.currentLanguage);
+  } catch (e) {}
   const cfg = document.getElementById('cfg-language');
   if (cfg) cfg.value = window.currentLanguage;
   styleLangButtons();

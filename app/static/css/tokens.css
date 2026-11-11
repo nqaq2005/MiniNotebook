@@ -18,7 +18,6 @@
   --danger: #f28b82;
   --ok: #81c995;
   --warn: #fdd663;
-  --graph-bg: #0b0c0e;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
 }
@@ -42,7 +41,6 @@
   --danger: #d93025;
   --ok: #188038;
   --warn: #b06000;
-  --graph-bg: #f8fafd;
   --shadow: 0 8px 30px rgba(60, 64, 67, 0.18);
   color-scheme: light;
 }

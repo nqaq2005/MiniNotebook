@@ -3,27 +3,29 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-# Ensure localhost and 127.0.0.1 are bypassed by system proxies (prevents 403 on local Qdrant/Ollama)
+# Ensure localhost, 127.0.0.1, and qdrant are bypassed by system proxies (prevents 403 on local Qdrant/Ollama/Docker)
 for _var in ("NO_PROXY", "no_proxy"):
     _cur = os.environ.get(_var, "")
     if _cur:
-        if "localhost" not in _cur:
-            os.environ[_var] = f"{_cur},localhost,127.0.0.1"
+        tokens = [t.strip() for t in _cur.split(",") if t.strip()]
+        for h in ("localhost", "127.0.0.1", "qdrant"):
+            if h not in tokens:
+                tokens.append(h)
+        os.environ[_var] = ",".join(tokens)
     else:
-        os.environ[_var] = "localhost,127.0.0.1"
+        os.environ[_var] = "localhost,127.0.0.1,qdrant"
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
-    """Centralized configuration for ScholarRAG (AI Literature Review & Citation Graph Assistant)."""
+    """Centralized configuration for MiniNotebook (AI Literature Review & Citation Graph Assistant)."""
 
     # API Keys
     gemini_api_key: str = ""
     openai_api_key: str = ""
     custom_api_key: str = ""
-    cohere_api_key: str = ""
 
     # Model & Custom Endpoint Settings
     # llm_provider: "gemini" or "custom" (OpenAI-compatible /v1/chat/completions, Ollama, vLLM, OpenRouter, Proxy)

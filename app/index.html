@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="application-name" content="ScholarRAG" />
+  <meta name="application-name" content="MiniNotebook" />
   <title>MiniNotebook</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect x=%274%27 y=%274%27 width=%2756%27 height=%2756%27 rx=%2715%27 fill=%27%234f7cff%27/%3E%3Cpath d=%27M20 16h23a5 5 0 015 5v28H25a5 5 0 01-5-5V16zm0 0v28a5 5 0 005 5m-5-28h28M28 25v16m8-16v16%27 fill=%27none%27 stroke=%27white%27 stroke-width=%273.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E" />
   <script>
     // Apply saved theme before first paint (no flash)
     (function () {
       try {
-        var t = localStorage.getItem('scholar_theme');
+        var t = localStorage.getItem('mininotebook_theme') || localStorage.getItem('scholar_theme');
         if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', t);
       } catch (e) {}
@@ -18,9 +18,9 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
 
   <script>
@@ -28,7 +28,7 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Google Sans Flex"', '"Google Sans"', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            sans: ['"Plus Jakarta Sans"', '"Inter"', 'system-ui', 'sans-serif'],
             mono: ['"JetBrains Mono"', 'monospace'],
           }
         }
@@ -66,7 +66,7 @@
         <button type="button" onclick="setLanguage('vi')" id="lang-btn-vi" class="px-2.5 py-1 rounded-full transition-colors">VI</button>
         <button type="button" onclick="setLanguage('en')" id="lang-btn-en" class="px-2.5 py-1 rounded-full transition-colors">EN</button>
       </div>
-      <button onclick="openSettingsModal()" class="btn-outline">
+      <button onclick="openSettingsModal()" class="btn-outline" title="Cài đặt (Ctrl+I)" aria-label="Cài đặt (Ctrl+I)">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -86,7 +86,7 @@
           <span class="text-[15px] font-medium t-strong">Nguồn</span>
           <span id="stat-papers" class="chip !py-0.5 !px-2 font-mono">0</span>
         </div>
-        <button onclick="toggleSourcesSidebar()" class="icon-btn sm" title="Thu gọn">
+        <button onclick="toggleSourcesSidebar()" class="icon-btn sm" title="Thu gọn (Ctrl+Shift+S)" aria-label="Thu gọn (Ctrl+Shift+S)">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         </button>
       </div>
@@ -102,18 +102,18 @@
       <div id="sources-list-container" class="flex-1 overflow-y-auto px-2.5 pb-2 space-y-0.5"></div>
 
       <div class="px-4 py-3 border-t hairline flex items-center justify-between text-[11px] t-muted font-mono" style="background: var(--panel-2)">
-        <span><b id="stat-chunks" class="t-strong">0</b> chunks</span>
-        <span><b id="stat-nodes" class="t-strong">0</b> nodes</span>
-        <span><b id="stat-edges" class="t-strong">0</b> links</span>
+        <span><b id="stat-papers-bottom" class="t-strong">0</b> nguồn</span>
+        <span>•</span>
+        <span><b id="stat-chunks" class="t-strong">0</b> phân đoạn</span>
       </div>
     </aside>
 
-    <!-- ===== CENTER: CHAT / GRAPH ===== -->
+    <!-- ===== CENTER: CHAT ===== -->
     <main id="chat-main-panel" class="panel flex-1 min-w-0 flex flex-col overflow-hidden relative">
 
       <div class="h-14 px-4 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-1">
-          <button onclick="toggleSourcesSidebar()" id="btn-open-sources" class="icon-btn sm hidden" title="Mở thanh nguồn">
+          <button onclick="toggleSourcesSidebar()" id="btn-open-sources" class="icon-btn sm hidden" title="Mở thanh nguồn (Ctrl+Shift+S)" aria-label="Mở thanh nguồn (Ctrl+Shift+S)">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
           </button>
           <span id="center-title" class="text-[15px] font-medium t-strong px-1">Trò chuyện</span>
@@ -122,7 +122,7 @@
           <button onclick="clearConversation()" id="btn-clear" class="icon-btn" title="Xóa cuộc trò chuyện">
             <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>
           </button>
-          <button onclick="toggleMarkdownPanel()" id="btn-toggle-markdown" class="icon-btn flex items-center gap-1.5 px-2.5 !w-auto" title="Ẩn/hiện Soạn thảo Markdown" aria-label="Ẩn/hiện Soạn thảo Markdown">
+          <button onclick="toggleMarkdownPanel()" id="btn-toggle-markdown" class="icon-btn flex items-center gap-1.5 px-2.5 !w-auto" title="Ẩn/hiện Soạn thảo Markdown (Ctrl+M)" aria-label="Ẩn/hiện Soạn thảo Markdown (Ctrl+M)">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4.75A2.75 2.75 0 017.75 2H20v17H7.75A2.75 2.75 0 015 16.25v-11.5z"/><path stroke-linecap="round" stroke-linejoin="round" d="M5 5v14.25A2.75 2.75 0 017.75 22H20M9 7h7M9 10.5h7"/></svg>
             <span class="text-xs font-medium hidden md:inline">Ghi chú Markdown</span>
           </button>
@@ -214,7 +214,7 @@
           <button onclick="downloadMarkdownFile()" class="icon-btn sm" title="Tải về file .md">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
           </button>
-          <button onclick="toggleMarkdownPanel()" class="icon-btn sm" title="Đóng ghi chú" aria-label="Đóng ghi chú"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
+          <button onclick="toggleMarkdownPanel()" class="icon-btn sm" title="Đóng ghi chú (Ctrl+M)" aria-label="Đóng ghi chú (Ctrl+M)"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button>
         </div>
       </div>
 

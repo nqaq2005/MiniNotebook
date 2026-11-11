@@ -141,11 +141,24 @@ class RAGEvaluator:
             kw_recall = 1.0
         context_recall = 0.5 * paper_recall + 0.5 * kw_recall
 
-        # 3. Citation Faithfulness
+        # 3. Citation Faithfulness & Evidence Grounding (COR-11)
         valid_ids = set(retrieved_paper_ids)
         cited_ids = re.findall(r"\[([0-9]{4}\.[0-9]{4,5}|[A-Za-z0-9_.\-]+):", response.answer)
         if cited_ids:
-            citation_faithfulness = sum(1 for cid in cited_ids if cid in valid_ids) / len(cited_ids)
+            id_validity = sum(1 for cid in cited_ids if cid in valid_ids) / len(cited_ids)
+            sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", response.answer) if "[" in s]
+            overlaps = []
+            for s in sentences:
+                s_cids = re.findall(r"\[([0-9]{4}\.[0-9]{4,5}|[A-Za-z0-9_.\-]+):", s)
+                if not s_cids:
+                    continue
+                s_tokens = set(tokenize_scientific_text(s.lower()))
+                target_content = " ".join(p.chunk.content.lower() for p in response.citations if p.chunk.paper_id in s_cids)
+                target_tokens = set(tokenize_scientific_text(target_content))
+                shared = len(s_tokens & target_tokens)
+                overlaps.append(min(1.0, (shared / max(len(s_tokens), 1)) * 1.5))
+            text_support = (sum(overlaps) / len(overlaps)) if overlaps else id_validity
+            citation_faithfulness = 0.5 * id_validity + 0.5 * text_support
         else:
             citation_faithfulness = 0.0
 

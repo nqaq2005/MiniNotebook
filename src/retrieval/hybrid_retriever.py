@@ -24,8 +24,14 @@ class HybridGraphRetriever:
     ):
         self.vector_store = vector_store
         self.citation_graph = citation_graph
-        self.reranker = reranker or CrossEncoderReranker(use_cross_encoder=True)
+        self._reranker = reranker
         self.search_mode = search_mode
+
+    @property
+    def reranker(self) -> CrossEncoderReranker:
+        if self._reranker is None:
+            self._reranker = CrossEncoderReranker(use_cross_encoder=True)
+        return self._reranker
 
     def retrieve(
         self,

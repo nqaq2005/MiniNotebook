@@ -46,6 +46,11 @@ class CrossEncoderReranker:
             except Exception:
                 self._cross_encoder = None
 
+    @property
+    def is_active(self) -> bool:
+        """True if the neural ONNX CrossEncoder is loaded and available."""
+        return self._cross_encoder is not None
+
     @staticmethod
     def _sigmoid(x: float) -> float:
         return 1.0 / (1.0 + math.exp(-max(min(x, 20.0), -20.0)))

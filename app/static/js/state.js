@@ -8,13 +8,7 @@ window.globalState = {
 };
 
 window.showAllLabels = true;
-window.currentLanguage = localStorage.getItem('scholar_lang') || 'vi';
-
-try {
-  window.notes = JSON.parse(localStorage.getItem('scholar_notes') || '[]');
-} catch (e) {
-  window.notes = [];
-}
+window.currentLanguage = localStorage.getItem('mininotebook_lang') || localStorage.getItem('scholar_lang') || 'vi';
 
 window.currentIngestTab = 'arxiv';
 window.activeController = null;
