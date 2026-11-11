@@ -82,14 +82,14 @@ Hệ thống hỗ trợ toàn diện các nền tảng LLM hàng đầu với kh
 
 Hệ thống được trang bị các tổ hợp phím tắt toàn cục, tự động ngăn chặn các hành vi trùng lặp của trình duyệt (`e.preventDefault()`):
 
-| Phím tắt | Chức năng | Mô tả chi tiết |
-| :--- | :--- | :--- |
-| **`Ctrl + M`** | **Đóng / Mở Ghi chú Markdown** | Bật hoặc tắt nhanh khung soạn thảo Markdown từ bất kỳ đâu (kể cả khi đang gõ text). |
-| **`Ctrl + Shift + S`** | **Đóng / Mở Tab Nguồn tài liệu** | Thu gọn hoặc mở rộng thanh danh sách bài báo bên trái (chặn phím tắt chụp màn hình trình duyệt). |
-| **`Ctrl + I`** | **Đóng / Mở Cài đặt (Settings)** | Mở modal tùy chỉnh mô hình LLM, Base URL, chế độ suy luận và ngôn ngữ (chặn hộp thoại Page Info). |
-| **`Ctrl + B`** | **In đậm văn bản (Markdown)** | Chèn cú pháp in đậm `**văn bản**` trong ô soạn thảo ghi chú. |
-| **`Tab`** | **Thụt lề văn bản (Markdown)** | Thêm 2 dấu cách thụt lề chuẩn mà không làm mất focus khỏi khung soạn thảo. |
-| **`Esc`** | **Đóng nhanh modal / Drawer** | Đóng hộp thoại cài đặt, xem chi tiết nguồn hoặc menu thả xuống. |
+| Phím tắt               | Chức năng                        | Mô tả chi tiết                                                                                    |
+| :--------------------- | :------------------------------- | :------------------------------------------------------------------------------------------------ |
+| **`Ctrl + M`**         | **Đóng / Mở Ghi chú Markdown**   | Bật hoặc tắt nhanh khung soạn thảo Markdown từ bất kỳ đâu (kể cả khi đang gõ text).               |
+| **`Ctrl + Shift + S`** | **Đóng / Mở Tab Nguồn tài liệu** | Thu gọn hoặc mở rộng thanh danh sách bài báo bên trái (chặn phím tắt chụp màn hình trình duyệt).  |
+| **`Ctrl + I`**         | **Đóng / Mở Cài đặt (Settings)** | Mở modal tùy chỉnh mô hình LLM, Base URL, chế độ suy luận và ngôn ngữ (chặn hộp thoại Page Info). |
+| **`Ctrl + B`**         | **In đậm văn bản (Markdown)**    | Chèn cú pháp in đậm `**văn bản**` trong ô soạn thảo ghi chú.                                      |
+| **`Tab`**              | **Thụt lề văn bản (Markdown)**   | Thêm 2 dấu cách thụt lề chuẩn mà không làm mất focus khỏi khung soạn thảo.                        |
+| **`Esc`**              | **Đóng nhanh modal / Drawer**    | Đóng hộp thoại cài đặt, xem chi tiết nguồn hoặc menu thả xuống.                                   |
 
 ---
 
