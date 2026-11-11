@@ -274,7 +274,8 @@ node -c app/static/js/*.js
 
 ---
 
-## 🛡️ Bản quyền & Font chữ Mã nguồn mở
+## 🛡️ Bản quyền & Giấy phép (License)
 
+* **Giấy phép phần mềm**: Dự án được phát hành dưới giấy phép mã nguồn mở [MIT License](file:///home/nqaq2005/Projects/RAG/LICENSE). Bạn hoàn toàn có quyền sử dụng, chỉnh sửa, phân phối và tích hợp vào các dự án học tập, nghiên cứu hoặc thương mại.
 * **Clean-room Implementation**: Dự án được xây dựng từ đầu bằng Python/FastAPI và HTML/Tailwind/JS thuần, không sao chép mã nguồn đóng từ bất kỳ dịch vụ thương mại nào.
 * **Typography**: Giao diện sử dụng bộ đôi font **Plus Jakarta Sans** và **Inter** — được cấp phép theo **SIL Open Font License (OFL)**, hoàn toàn miễn phí và an toàn cho mọi mục đích học tập, nghiên cứu và thương mại.

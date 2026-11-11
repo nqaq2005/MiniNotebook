@@ -3,6 +3,7 @@ name = "mininotebook"
 version = "0.2.0"
 description = "MiniNotebook: AI Literature Review & Research Assistant using Section-Aware Hybrid RAG"
 readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.7.0",
